@@ -18,7 +18,7 @@ android {
     buildToolsVersion "22.0.1"
 
     defaultConfig {
-        minSdkVersion 19
+        minSdkVersion 21
         targetSdkVersion 22
         versionCode 2
         versionName '0.1'
@@ -72,7 +72,7 @@ repositories {
 
 dependencies {
     // VSM library - abstraction API
-    compile 'ch.hevs.biovotion.vsm:vsm:5.1.0:release@aar'
+    compile 'ch.hevs.biovotion.vsm:vsm:5.1.3:release@aar'
     // compile 'ch.hevs.biovotion.vsm:vsm:5.1.0:debug@aar' // TODO: use the debug version if required
 
     // Generic BLE library

@@ -26,135 +26,224 @@ import org.radarcns.android.device.DeviceStateCreator;
  * The status on a single point in time of a Biovotion VSM device.
  */
 public class BiovotionDeviceStatus extends BaseDeviceState {
-    private Float batteryLevel = Float.NaN;
-    private Float batteryChargeRate = Float.NaN;
-    private Float batteryVoltage = Float.NaN;
-    private Float batteryStatus = Float.NaN;
+    private float[] battery = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
 
-    private Float bloodPulseWaveValue = Float.NaN;
-    private Float bloodPulseWaveQuality = Float.NaN;
+    private float[] bloodPulseWave = {Float.NaN, Float.NaN};
 
-    private Float spo2Value = Float.NaN;
-    private Float spo2Quality = Float.NaN;
+    private float[] spo2 = {Float.NaN, Float.NaN};
 
-    private Float heartRateValue = Float.NaN;
-    private Float heartRateQuality = Float.NaN;
+    private float[] heartRate = {Float.NaN, Float.NaN};
 
-    private Float hrvValue = Float.NaN;
-    private Float hrvQuality = Float.NaN;
+    private float[] heartRateVariability = {Float.NaN, Float.NaN};
 
-    private Float rrValue = Float.NaN;
-    private Float rrQuality = Float.NaN;
+    private float[] respirationRate = {Float.NaN, Float.NaN};
 
-    private Float energyValue = Float.NaN;
-    private Float energyQuality = Float.NaN;
+    private float[] energy = {Float.NaN, Float.NaN};
 
-    private Float temperature = Float.NaN;
-    private Float temperatureObject = Float.NaN;
-    private Float temperatureBaro = Float.NaN;
+    private float[] temperature = {Float.NaN, Float.NaN, Float.NaN};
 
-    private Float gsrAmplitude = Float.NaN;
-    private Float gsrPhase = Float.NaN;
+    private float[] galvanicSkinResponse = {Float.NaN, Float.NaN};
+
+    private float[] acceleration = {Float.NaN, Float.NaN, Float.NaN};
+
+    private float[] ppgRaw = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+
+    private float[] ledCurrent = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
 
     public static final Parcelable.Creator<BiovotionDeviceStatus> CREATOR = new DeviceStateCreator<>(BiovotionDeviceStatus.class);
 
     @Override
     public synchronized void writeToParcel(Parcel dest, int flags) {
         super.writeToParcel(dest, flags);
-        dest.writeFloat(this.batteryLevel);
-        dest.writeFloat(this.batteryChargeRate);
-        dest.writeFloat(this.batteryVoltage);
-        dest.writeFloat(this.batteryStatus);
-        dest.writeFloat(this.bloodPulseWaveValue);
-        dest.writeFloat(this.bloodPulseWaveQuality);
-        dest.writeFloat(this.spo2Value);
-        dest.writeFloat(this.spo2Quality);
-        dest.writeFloat(this.heartRateValue);
-        dest.writeFloat(this.heartRateQuality);
-        dest.writeFloat(this.hrvValue);
-        dest.writeFloat(this.hrvQuality);
-        dest.writeFloat(this.rrValue);
-        dest.writeFloat(this.rrQuality);
-        dest.writeFloat(this.energyValue);
-        dest.writeFloat(this.energyQuality);
-        dest.writeFloat(this.temperature);
-        dest.writeFloat(this.temperatureObject);
-        dest.writeFloat(this.temperatureBaro);
-        dest.writeFloat(this.gsrAmplitude);
-        dest.writeFloat(this.gsrPhase);
+        dest.writeFloat(this.battery[0]);
+        dest.writeFloat(this.battery[1]);
+        dest.writeFloat(this.battery[2]);
+        dest.writeFloat(this.battery[3]);
+        dest.writeFloat(this.bloodPulseWave[0]);
+        dest.writeFloat(this.bloodPulseWave[1]);
+        dest.writeFloat(this.spo2[0]);
+        dest.writeFloat(this.spo2[1]);
+        dest.writeFloat(this.heartRate[0]);
+        dest.writeFloat(this.heartRate[1]);
+        dest.writeFloat(this.heartRateVariability[0]);
+        dest.writeFloat(this.heartRateVariability[1]);
+        dest.writeFloat(this.respirationRate[0]);
+        dest.writeFloat(this.respirationRate[1]);
+        dest.writeFloat(this.energy[0]);
+        dest.writeFloat(this.energy[1]);
+        dest.writeFloat(this.temperature[0]);
+        dest.writeFloat(this.temperature[1]);
+        dest.writeFloat(this.temperature[2]);
+        dest.writeFloat(this.galvanicSkinResponse[0]);
+        dest.writeFloat(this.galvanicSkinResponse[1]);
+        dest.writeFloat(this.acceleration[0]);
+        dest.writeFloat(this.acceleration[1]);
+        dest.writeFloat(this.acceleration[2]);
+        dest.writeFloat(this.ppgRaw[0]);
+        dest.writeFloat(this.ppgRaw[1]);
+        dest.writeFloat(this.ppgRaw[2]);
+        dest.writeFloat(this.ppgRaw[3]);
+        dest.writeFloat(this.ledCurrent[0]);
+        dest.writeFloat(this.ledCurrent[1]);
+        dest.writeFloat(this.ledCurrent[2]);
+        dest.writeFloat(this.ledCurrent[3]);
     }
 
     public void updateFromParcel(Parcel in) {
         super.updateFromParcel(in);
-        batteryLevel = in.readFloat();
-        batteryChargeRate = in.readFloat();
-        batteryVoltage = in.readFloat();
-        batteryStatus = in.readFloat();
-        bloodPulseWaveValue = in.readFloat();
-        bloodPulseWaveQuality = in.readFloat();
-        spo2Value = in.readFloat();
-        spo2Quality = in.readFloat();
-        heartRateValue = in.readFloat();
-        heartRateQuality = in.readFloat();
-        hrvValue = in.readFloat();
-        hrvQuality = in.readFloat();
-        rrValue = in.readFloat();
-        rrQuality = in.readFloat();
-        energyValue = in.readFloat();
-        energyQuality = in.readFloat();
-        temperature = in.readFloat();
-        temperatureObject = in.readFloat();
-        temperatureBaro = in.readFloat();
-        gsrAmplitude = in.readFloat();
-        gsrPhase = in.readFloat();
+        battery[0] = in.readFloat();
+        battery[1] = in.readFloat();
+        battery[2] = in.readFloat();
+        battery[3] = in.readFloat();
+        bloodPulseWave[0] = in.readFloat();
+        bloodPulseWave[1] = in.readFloat();
+        spo2[0] = in.readFloat();
+        spo2[1] = in.readFloat();
+        heartRate[0] = in.readFloat();
+        heartRate[1] = in.readFloat();
+        heartRateVariability[0] = in.readFloat();
+        heartRateVariability[1] = in.readFloat();
+        respirationRate[0] = in.readFloat();
+        respirationRate[1] = in.readFloat();
+        energy[0] = in.readFloat();
+        energy[1] = in.readFloat();
+        temperature[0] = in.readFloat();
+        temperature[1] = in.readFloat();
+        temperature[2] = in.readFloat();
+        galvanicSkinResponse[0] = in.readFloat();
+        galvanicSkinResponse[1] = in.readFloat();
+        acceleration[0] = in.readFloat();
+        acceleration[1] = in.readFloat();
+        acceleration[2] = in.readFloat();
+        ppgRaw[0] = in.readFloat();
+        ppgRaw[1] = in.readFloat();
+        ppgRaw[2] = in.readFloat();
+        ppgRaw[3] = in.readFloat();
+        ledCurrent[0] = in.readFloat();
+        ledCurrent[1] = in.readFloat();
+        ledCurrent[2] = in.readFloat();
+        ledCurrent[3] = in.readFloat();
     }
 
-    public float getBatteryLevel() { return batteryLevel; }
-    public float getBatteryChargeRate() { return batteryChargeRate; }
-    public float getBatteryVoltage() { return batteryVoltage; }
-    public float getBatteryStatus() { return batteryStatus; }
-    public float getBloodPulseWave() { return bloodPulseWaveValue; }
-    public float getBloodPulseWaveQuality() { return bloodPulseWaveQuality; }
-    public float getSpO2() { return spo2Value; }
-    public float getSpO2Quality() { return spo2Quality; }
+
+    /**
+     * getter
+     */
+
+    public float getBatteryLevel() { return battery[0]; }
+    public float[] getBattery() {
+        return battery;
+    }
+
+    public float[] getBloodPulseWave() { return bloodPulseWave; }
+
+    public float[] getSpO2() { return spo2; }
+
     @Override
     public boolean hasHeartRate() { return true; }
-    public float getHeartRate() { return heartRateValue; }
-    public float getHeartRateQuality() { return heartRateQuality; }
-    public float getHrv() { return hrvValue; }
-    public float getHrvQuality() { return hrvQuality; }
-    public float getRr() { return rrValue; }
-    public float getRrQuality() { return rrQuality; }
-    public float getEnergy() { return energyValue; }
-    public float getEnergyQuality() { return energyQuality; }
+    public float getHeartRate() { return heartRate[0]; }
+    public float[] getHeartRateAll() { return heartRate; }
+
+    public float[] getHeartRateVariability() { return heartRateVariability; }
+
+    public float[] getRespirationRate() { return respirationRate; }
+
+    public float[] getEnergy() { return energy; }
+
     @Override
     public boolean hasTemperature() { return true; }
-    public float getTemperature() { return temperature; }
-    public float getTemperatureObject() { return temperature; }
-    public float getTemperatureBaro() { return temperature; }
-    public float getGsrAmplitude() { return gsrAmplitude; }
-    public float getGsrPhase() { return gsrPhase; }
+    public float getTemperature() { return temperature[0]; }
+    public float[] getTemperatureAll() { return temperature; }
+
+    public float[] getGalvanicSkinResponse() { return galvanicSkinResponse; }
+
+    @Override
+    public boolean hasAcceleration() {
+        return true;
+    }
+    public float[] getAcceleration() {
+        return acceleration;
+    }
+
+    public float[] getPhotoRaw() {
+        return ppgRaw;
+    }
+
+    public float[] getLedCurrent() {
+        return ledCurrent;
+    }
 
 
-    public void setBatteryLevel(float cap) { this.batteryLevel = cap / 100.0f; }
-    public void setBatteryChargeRate(float rate) { this.batteryChargeRate = rate / 100.0f; }
-    public void setBatteryVoltage(float volt) { this.batteryVoltage = volt / 10.0f; }
-    public void setBatteryStatus(float stat) { this.batteryStatus = stat; }
-    public void setBloodPulseWave(float BPWvalue) { this.bloodPulseWaveValue = BPWvalue / 50.0f; }
-    public void setBloodPulseWaveQuality(float BPWquality) { this.bloodPulseWaveQuality = BPWquality / 100.0f; }
-    public void setSpO2(float spo2value) { this.spo2Value = spo2value / 100.0f; }
-    public void setSpO2Quality(float spo2quality) { this.spo2Quality = spo2quality / 100.0f; }
-    public void setHeartRate(float HRvalue) { this.heartRateValue = HRvalue; }
-    public void setHeartRateQuality(float HRquality) { this.heartRateQuality = HRquality / 100.0f; }
-    public void setHrv(float HRVvalue) { this.hrvValue = HRVvalue; }
-    public void setHrvQuality(float HRVquality) { this.hrvQuality = HRVquality / 100.0f; }
-    public void setRr(float RRvalue) { this.rrValue = RRvalue; }
-    public void setRrQuality(float RRquality) { this.rrQuality = RRquality / 100.0f; }
-    public void setEnergy(float NRGvalue) { this.energyValue = NRGvalue * 2.0f; }
-    public void setEnergyQuality(float NRGquality) { this.energyQuality = NRGquality / 100.0f; }
-    public void setTemperature(float temp) { this.temperature = temp / 100.0f; }
-    public void setTemperatureObject(float temp) { this.temperatureObject = temp / 100.0f; }
-    public void setTemperatureBaro(float temp) { this.temperatureBaro = temp / 100.0f; }
-    public void setGsrAmplitude(float GSRamp) { this.gsrAmplitude = GSRamp / 3000.0f; }
-    public void setGsrPhase(float GSRphase) { this.gsrPhase = GSRphase; }
+
+    /**
+     * setter
+     */
+
+    public void setBattery(float level, float rate, float voltage, float status) {
+        this.battery[0] = level / 100.0f;
+        this.battery[1] = rate / 100.0f;
+        this.battery[2] = voltage / 10.0f;
+        this.battery[3] = status;
+    }
+
+    public void setBloodPulseWave(float value, float quality) {
+        this.bloodPulseWave[0] = value / 50.0f;
+        this.bloodPulseWave[1] = quality / 100.0f;
+    }
+
+    public void setSpo2(float value, float quality) {
+        this.spo2[0] = value / 100.0f;
+        this.spo2[1] = quality / 100.0f;
+    }
+
+    public void setHeartRate(float value, float quality) {
+        this.heartRate[0] = value;
+        this.heartRate[1] = quality / 100.0f;
+    }
+
+    public void setHeartRateVariability(float value, float quality) {
+        this.heartRateVariability[0] = value;
+        this.heartRateVariability[1] = quality / 100.0f;
+    }
+
+    public void setRespirationRate(float value, float quality) {
+        this.respirationRate[0] = value;
+        this.respirationRate[1] = quality / 100.0f;
+    }
+
+    public void setEnergy(float value, float quality) {
+        this.energy[0] = value * 2.0f;
+        this.energy[1] = quality / 100.0f;
+    }
+
+    public void setTemperature(float temp, float tempLocal, float tempBaro) {
+        this.temperature[0] = temp / 100.0f;
+        this.temperature[1] = tempLocal / 100.0f;
+        this.temperature[2] = tempBaro / 100.0f;
+    }
+
+    public void setGalvanicSkinResponse(float amp, float phase) {
+        this.galvanicSkinResponse[0] = amp / 3000.0f;
+        this.galvanicSkinResponse[1] = phase;
+    }
+
+    public void setAcceleration(float x, float y, float z) {
+        this.acceleration[0] = x / (float)Math.pow(2, 12);
+        this.acceleration[1] = y / (float)Math.pow(2, 12);
+        this.acceleration[2] = z / (float)Math.pow(2, 12);
+    }
+
+    public void setPhotoRaw(float red, float green, float ir, float dark) {
+        this.ppgRaw[0] = red;
+        this.ppgRaw[1] = green;
+        this.ppgRaw[2] = ir;
+        this.ppgRaw[3] = dark;
+    }
+
+    public void setLedCurrent(float red, float green, float ir, float offset) {
+        this.ledCurrent[0] = red;
+        this.ledCurrent[1] = green;
+        this.ledCurrent[2] = ir;
+        this.ledCurrent[3] = offset;
+    }
 }
