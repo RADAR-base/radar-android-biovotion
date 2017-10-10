@@ -17,120 +17,129 @@
 package org.radarcns.biovotion;
 
 import org.radarcns.android.device.DeviceTopics;
+import org.radarcns.passive.biovotion.BiovotionVsm1Acceleration;
+import org.radarcns.passive.biovotion.BiovotionVsm1BatteryLevel;
+import org.radarcns.passive.biovotion.BiovotionVsm1BloodPulseWave;
+import org.radarcns.passive.biovotion.BiovotionVsm1Energy;
+import org.radarcns.passive.biovotion.BiovotionVsm1GalvanicSkinResponse;
+import org.radarcns.passive.biovotion.BiovotionVsm1HeartRate;
+import org.radarcns.passive.biovotion.BiovotionVsm1HeartRateVariability;
+import org.radarcns.passive.biovotion.BiovotionVsm1LedCurrent;
+import org.radarcns.passive.biovotion.BiovotionVsm1OxygenSaturation;
+import org.radarcns.passive.biovotion.BiovotionVsm1PpgRaw;
+import org.radarcns.passive.biovotion.BiovotionVsm1RespirationRate;
+import org.radarcns.passive.biovotion.BiovotionVsm1Temperature;
 import org.radarcns.topic.AvroTopic;
-import org.radarcns.key.MeasurementKey;
+import org.radarcns.kafka.ObservationKey;
 
 /** Topic manager for topics concerning the Biovotion VSM. */
 public class BiovotionTopics extends DeviceTopics {
-    private final AvroTopic<MeasurementKey, BiovotionVSMBatteryState> batteryStateTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMBloodPulseWave> bloodPulseWaveTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMSpO2> spo2Topic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMHeartRate> heartRateTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMHeartRateVariability> hrvTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMRespirationRate> rrTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMEnergy> energyTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMTemperature> temperatureTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMGalvanicSkinResponse> gsrTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMAcceleration> accelerationTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMPhotoRaw> ppgRawTopic;
-    private final AvroTopic<MeasurementKey, BiovotionVSMLedCurrent> ledCurrentTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1BatteryLevel> batteryStateTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1BloodPulseWave> bloodPulseWaveTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1OxygenSaturation> spo2Topic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1HeartRate> heartRateTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1HeartRateVariability> hrvTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1RespirationRate> respirationTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1Energy> energyTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1Temperature> temperatureTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1GalvanicSkinResponse> gsrTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1Acceleration> accelerationTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1PpgRaw> ppgRawTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1LedCurrent> ledCurrentTopic;
 
-    private static final Object syncObject = new Object();
     private static BiovotionTopics instance = null;
 
-    public static BiovotionTopics getInstance() {
-        synchronized (syncObject) {
-            if (instance == null) {
-                instance = new BiovotionTopics();
-            }
-            return instance;
+    public synchronized static BiovotionTopics getInstance() {
+        if (instance == null) {
+            instance = new BiovotionTopics();
         }
+        return instance;
     }
 
     private BiovotionTopics() {
-        batteryStateTopic = createTopic("android_biovotion_battery_state",
-                BiovotionVSMBatteryState.getClassSchema(),
-                BiovotionVSMBatteryState.class);
-        bloodPulseWaveTopic = createTopic("android_biovotion_blood_pulse_wave",
-                BiovotionVSMBloodPulseWave.getClassSchema(),
-                BiovotionVSMBloodPulseWave.class);
-        spo2Topic = createTopic("android_biovotion_spo2",
-                BiovotionVSMSpO2.getClassSchema(),
-                BiovotionVSMSpO2.class);
-        heartRateTopic = createTopic("android_biovotion_heart_rate",
-                BiovotionVSMHeartRate.getClassSchema(),
-                BiovotionVSMHeartRate.class);
-        hrvTopic = createTopic("android_biovotion_heart_rate_variability",
-                BiovotionVSMHeartRateVariability.getClassSchema(),
-                BiovotionVSMHeartRateVariability.class);
-        rrTopic = createTopic("android_biovotion_respiration_rate",
-                BiovotionVSMRespirationRate.getClassSchema(),
-                BiovotionVSMRespirationRate.class);
-        energyTopic = createTopic("android_biovotion_energy",
-                BiovotionVSMEnergy.getClassSchema(),
-                BiovotionVSMEnergy.class);
-        temperatureTopic = createTopic("android_biovotion_temperature",
-                BiovotionVSMTemperature.getClassSchema(),
-                BiovotionVSMTemperature.class);
-        gsrTopic = createTopic("android_biovotion_galvanic_skin_response",
-                BiovotionVSMGalvanicSkinResponse.getClassSchema(),
-                BiovotionVSMGalvanicSkinResponse.class);
-        accelerationTopic = createTopic("android_biovotion_acceleration",
-                BiovotionVSMAcceleration.getClassSchema(),
-                BiovotionVSMAcceleration.class);
-        ppgRawTopic = createTopic("android_biovotion_ppg_raw",
-                BiovotionVSMPhotoRaw.getClassSchema(),
-                BiovotionVSMPhotoRaw.class);
-        ledCurrentTopic = createTopic("android_biovotion_led_current",
-                BiovotionVSMLedCurrent.getClassSchema(),
-                BiovotionVSMLedCurrent.class);
+        batteryStateTopic = createTopic("android_biovotion_vsm1_battery_level",
+                BiovotionVsm1BatteryLevel.getClassSchema(),
+                BiovotionVsm1BatteryLevel.class);
+        bloodPulseWaveTopic = createTopic("android_biovotion_vsm1_blood_volume_pulse",
+                BiovotionVsm1BloodPulseWave.getClassSchema(),
+                BiovotionVsm1BloodPulseWave.class);
+        spo2Topic = createTopic("android_biovotion_vsm1_oxygen_saturation",
+                BiovotionVsm1OxygenSaturation.getClassSchema(),
+                BiovotionVsm1OxygenSaturation.class);
+        heartRateTopic = createTopic("android_biovotion_vsm1_heartrate",
+                BiovotionVsm1HeartRate.getClassSchema(),
+                BiovotionVsm1HeartRate.class);
+        hrvTopic = createTopic("android_biovotion_vsm1_heartrate_variability",
+                BiovotionVsm1HeartRateVariability.getClassSchema(),
+                BiovotionVsm1HeartRateVariability.class);
+        respirationTopic = createTopic("android_biovotion_vsm1_respiration_rate",
+                BiovotionVsm1RespirationRate.getClassSchema(),
+                BiovotionVsm1RespirationRate.class);
+        energyTopic = createTopic("android_biovotion_vsm1_energy",
+                BiovotionVsm1Energy.getClassSchema(),
+                BiovotionVsm1Energy.class);
+        temperatureTopic = createTopic("android_biovotion_vsm1_temperature",
+                BiovotionVsm1Temperature.getClassSchema(),
+                BiovotionVsm1Temperature.class);
+        gsrTopic = createTopic("android_biovotion_vsm1_galvanic_skin_response",
+                BiovotionVsm1GalvanicSkinResponse.getClassSchema(),
+                BiovotionVsm1GalvanicSkinResponse.class);
+        accelerationTopic = createTopic("android_biovotion_vsm1_acceleration",
+                BiovotionVsm1Acceleration.getClassSchema(),
+                BiovotionVsm1Acceleration.class);
+        ppgRawTopic = createTopic("android_biovotion_vsm1_ppg_raw",
+                BiovotionVsm1PpgRaw.getClassSchema(),
+                BiovotionVsm1PpgRaw.class);
+        ledCurrentTopic = createTopic("android_biovotion_vsm1_led_current",
+                BiovotionVsm1LedCurrent.getClassSchema(),
+                BiovotionVsm1LedCurrent.class);
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMBatteryState> getBatteryStateTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1BatteryLevel> getBatteryStateTopic() {
         return batteryStateTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMBloodPulseWave> getBloodPulseWaveTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1BloodPulseWave> getBloodPulseWaveTopic() {
         return bloodPulseWaveTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMSpO2> getSpO2Topic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1OxygenSaturation> getSpO2Topic() {
         return spo2Topic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMHeartRate> getHeartRateTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1HeartRate> getHeartRateTopic() {
         return heartRateTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMHeartRateVariability> getHrvTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1HeartRateVariability> getHrvTopic() {
         return hrvTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMRespirationRate> getRrTopic() {
-        return rrTopic;
+    public AvroTopic<ObservationKey, BiovotionVsm1RespirationRate> getRespirationRateTopic() {
+        return respirationTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMEnergy> getEnergyTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1Energy> getEnergyTopic() {
         return energyTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMTemperature> getTemperatureTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1Temperature> getTemperatureTopic() {
         return temperatureTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMGalvanicSkinResponse> getGsrTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1GalvanicSkinResponse> getGsrTopic() {
         return gsrTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMAcceleration> getAccelerationTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1Acceleration> getAccelerationTopic() {
         return accelerationTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMPhotoRaw> getPhotoRawTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1PpgRaw> getPhotoRawTopic() {
         return ppgRawTopic;
     }
 
-    public AvroTopic<MeasurementKey, BiovotionVSMLedCurrent> getLedCurrentTopic() {
+    public AvroTopic<ObservationKey, BiovotionVsm1LedCurrent> getLedCurrentTopic() {
         return ledCurrentTopic;
     }
 }
