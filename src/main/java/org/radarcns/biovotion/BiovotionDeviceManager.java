@@ -402,7 +402,7 @@ public class BiovotionDeviceManager
         attributes.put("macAddress", descriptor.address());
         attributes.put("sdk", "vsm-5.1.3-release.aar");
         // register device now, start listening to the device after the registration is successful
-        getService().registerDevice(descriptor.name(), attributes);
+        getService().registerDevice(descriptor.address(), descriptor.name(), attributes);
 
         logger.info("Biovotion VSM device Name: {} ID: {}", descriptor.name(), descriptor.address());
     }
@@ -410,6 +410,8 @@ public class BiovotionDeviceManager
     @Override
     public void didRegister(AppSource source) {
         super.didRegister(source);
+
+        getState().getId().setSourceId(source.getSourceId());
 
         vsmDevice = VsmDevice.sharedInstance();
         vsmDevice.setDescriptor(vsmDescriptor);
