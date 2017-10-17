@@ -66,7 +66,7 @@ public final class VsmConstants {
   public final static int PID_SWITCH_DEVICE_OFF                     = 0x2A; // W
   public final static int PID_TX_POWER                              = 0x2B; // RW
   public final static int PID_SET_FACTORY_DEFAULT                   = 0x2C; // W
-  public final static int PID_DISSCONNECT_BLE_CONN                  = 0x2D; // W
+  public final static int PID_DISCONNECT_BLE_CONN                  = 0x2D; // W
   public final static int PID_SELF_TEST_RESULT                      = 0x2E; // R
   public final static int PID_CLEAR_WHITE_LIST                      = 0x30; // W
   public final static int PID_BOOTLOADER_VERSIOM                    = 0x31; // R
@@ -136,6 +136,14 @@ public final class VsmConstants {
   public final static int MOD_RAW_DATA_FIX_CURRENT      = 0x0C;
   public final static int MOD_SHORT_SELF_TEST_MODE      = 0x0D;
   public final static int MOD_MIXED_VITAL_RAW_SILENT    = 0x0E;
+
+
+  /**
+   * VSM device modes
+   */
+  public final static int MOD_IDLE            = 0x00;
+  public final static int MOD_MEASURE         = 0x01;
+  public final static int MOD_ONCHARGER       = 0x02;
 
 
   private VsmConstants() {
