@@ -24,34 +24,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
-//import android.widget.Toast;
-
-import org.radarcns.android.data.DataCache;
-import org.radarcns.android.data.TableDataHandler;
-import org.radarcns.android.device.DeviceManager;
-import org.radarcns.android.device.DeviceStatusListener;
-//import org.radarcns.android.util.Boast;
-import org.radarcns.key.MeasurementKey;
-import org.radarcns.topic.AvroTopic;
-import org.radarcns.util.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.text.SimpleDateFormat;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-import java.util.Set;
-import java.util.TimeZone;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-
+import android.util.ArrayMap;
 import ch.hevs.biovotion.vsm.ble.scanner.VsmDiscoveryListener;
 import ch.hevs.biovotion.vsm.ble.scanner.VsmScanner;
 import ch.hevs.biovotion.vsm.core.VsmConnectionState;
@@ -74,41 +47,67 @@ import ch.hevs.ble.lib.core.BleService;
 import ch.hevs.ble.lib.core.BleServiceObserver;
 import ch.hevs.ble.lib.exceptions.BleScanException;
 import ch.hevs.ble.lib.scanner.Scanner;
+import org.radarcns.android.auth.AppSource;
+import org.radarcns.android.data.DataCache;
+import org.radarcns.android.device.AbstractDeviceManager;
+import org.radarcns.android.device.DeviceStatusListener;
+import org.radarcns.kafka.ObservationKey;
+import org.radarcns.passive.biovotion.BiovotionVsm1Acceleration;
+import org.radarcns.passive.biovotion.BiovotionVsm1BatteryLevel;
+import org.radarcns.passive.biovotion.BiovotionVsm1BloodPulseWave;
+import org.radarcns.passive.biovotion.BiovotionVsm1Energy;
+import org.radarcns.passive.biovotion.BiovotionVsm1GalvanicSkinResponse;
+import org.radarcns.passive.biovotion.BiovotionVsm1HeartRate;
+import org.radarcns.passive.biovotion.BiovotionVsm1HeartRateVariability;
+import org.radarcns.passive.biovotion.BiovotionVsm1LedCurrent;
+import org.radarcns.passive.biovotion.BiovotionVsm1OxygenSaturation;
+import org.radarcns.passive.biovotion.BiovotionVsm1PpgRaw;
+import org.radarcns.passive.biovotion.BiovotionVsm1RespirationRate;
+import org.radarcns.passive.biovotion.BiovotionVsm1Temperature;
+import org.radarcns.topic.AvroTopic;
+import org.radarcns.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /** Manages scanning for a Biovotion VSM wearable and connecting to it */
-public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener, VsmDiscoveryListener, StreamListener, ParameterListener {
+public class BiovotionDeviceManager
+        extends AbstractDeviceManager<BiovotionService, BiovotionDeviceStatus>
+        implements VsmDeviceListener, VsmDiscoveryListener, StreamListener, ParameterListener {
     private static final Logger logger = LoggerFactory.getLogger(BiovotionDeviceManager.class);
 
-    private final TableDataHandler dataHandler;
-    private final Context context;
-    private final DeviceStatusListener biovotionService;
+    private final DataCache<ObservationKey, BiovotionVsm1BloodPulseWave> bpwTable;
+    private final DataCache<ObservationKey, BiovotionVsm1OxygenSaturation> spo2Table;
+    private final DataCache<ObservationKey, BiovotionVsm1HeartRate> hrTable;
+    private final DataCache<ObservationKey, BiovotionVsm1HeartRateVariability> hrvTable;
+    private final DataCache<ObservationKey, BiovotionVsm1RespirationRate> rrTable;
+    private final DataCache<ObservationKey, BiovotionVsm1Energy> energyTable;
+    private final DataCache<ObservationKey, BiovotionVsm1Temperature> temperatureTable;
+    private final DataCache<ObservationKey, BiovotionVsm1GalvanicSkinResponse> gsrTable;
+    private final DataCache<ObservationKey, BiovotionVsm1Acceleration> accelerationTable;
+    private final DataCache<ObservationKey, BiovotionVsm1PpgRaw> ppgRawTable;
+    private final DataCache<ObservationKey, BiovotionVsm1LedCurrent> ledCurrentTable;
+    private final AvroTopic<ObservationKey, BiovotionVsm1BatteryLevel> batteryTopic;
 
-    private final DataCache<MeasurementKey, BiovotionVSMBloodPulseWave> bpwTable;
-    private final DataCache<MeasurementKey, BiovotionVSMSpO2> spo2Table;
-    private final DataCache<MeasurementKey, BiovotionVSMHeartRate> hrTable;
-    private final DataCache<MeasurementKey, BiovotionVSMHeartRateVariability> hrvTable;
-    private final DataCache<MeasurementKey, BiovotionVSMRespirationRate> rrTable;
-    private final DataCache<MeasurementKey, BiovotionVSMEnergy> energyTable;
-    private final DataCache<MeasurementKey, BiovotionVSMTemperature> temperatureTable;
-    private final DataCache<MeasurementKey, BiovotionVSMGalvanicSkinResponse> gsrTable;
-    private final DataCache<MeasurementKey, BiovotionVSMAcceleration> accelerationTable;
-    private final DataCache<MeasurementKey, BiovotionVSMPhotoRaw> ppgRawTable;
-    private final DataCache<MeasurementKey, BiovotionVSMLedCurrent> ledCurrentTable;
-    private final AvroTopic<MeasurementKey, BiovotionVSMBatteryState> batteryTopic;
-
-    private final BiovotionDeviceStatus deviceStatus;
-
-    private boolean isClosed;
     private boolean isConnected;
-    private String deviceName;
-    private Pattern[] acceptableIds;
 
     private VsmDevice vsmDevice;
     private StreamController vsmStreamController;
     private ParameterController vsmParameterController;
     private VsmDescriptor vsmDescriptor;
     private VsmScanner vsmScanner;
-    private BluetoothAdapter vsmBluetoothAdapter;
     private BleService vsmBleService;
 
     private final ScheduledExecutorService executor;
@@ -123,9 +122,9 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
     private int gap_raw_num = -1;           // current total number of records in storage
     private int gap_stat = -1;              // current GAP status
 
-    private Deque<BiovotionVSMAcceleration> gap_raw_stack_acc;
-    private Deque<BiovotionVSMPhotoRaw> gap_raw_stack_ppg;
-    private Deque<BiovotionVSMLedCurrent> gap_raw_stack_led_current;
+    private Deque<BiovotionVsm1Acceleration> gap_raw_stack_acc;
+    private Deque<BiovotionVsm1PpgRaw> gap_raw_stack_ppg;
+    private Deque<BiovotionVsm1LedCurrent> gap_raw_stack_led_current;
 
     private ScheduledFuture<?> utcFuture;
     private final ByteBuffer utcBuffer;
@@ -143,7 +142,7 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
             vsmDevice.setBleService(vsmBleService);
 
             logger.info("Biovotion VSM initialize BLE service");
-            if (!vsmBleService.initialize(context.getApplicationContext()))
+            if (!vsmBleService.initialize(getService()))
                 logger.error("Biovotion VSM unable to initialize BLE service");
 
             // Automatically connects to the device upon successful start-up initialization
@@ -158,26 +157,24 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
             vsmBleService = null;
         }
     };
+    private Pattern[] acceptableIds;
 
 
-
-    public BiovotionDeviceManager(Context context, DeviceStatusListener biovotionService, String groupId, TableDataHandler handler, BiovotionTopics topics) {
-        this.dataHandler = handler;
-        this.bpwTable = dataHandler.getCache(topics.getBloodPulseWaveTopic());
-        this.spo2Table = dataHandler.getCache(topics.getSpO2Topic());
-        this.hrTable = dataHandler.getCache(topics.getHeartRateTopic());
-        this.hrvTable = dataHandler.getCache(topics.getHrvTopic());
-        this.rrTable = dataHandler.getCache(topics.getRrTopic());
-        this.energyTable = dataHandler.getCache(topics.getEnergyTopic());
-        this.temperatureTable = dataHandler.getCache(topics.getTemperatureTopic());
-        this.gsrTable = dataHandler.getCache(topics.getGsrTopic());
-        this.accelerationTable = dataHandler.getCache(topics.getAccelerationTopic());
-        this.ppgRawTable = dataHandler.getCache(topics.getPhotoRawTopic());
-        this.ledCurrentTable = dataHandler.getCache(topics.getLedCurrentTopic());
+    public BiovotionDeviceManager(BiovotionService service) {
+        super(service);
+        BiovotionTopics topics = service.getTopics();
+        this.bpwTable = getCache(topics.getBloodPulseWaveTopic());
+        this.spo2Table = getCache(topics.getSpO2Topic());
+        this.hrTable = getCache(topics.getHeartRateTopic());
+        this.hrvTable = getCache(topics.getHrvTopic());
+        this.rrTable = getCache(topics.getRespirationRateTopic());
+        this.energyTable = getCache(topics.getEnergyTopic());
+        this.temperatureTable = getCache(topics.getTemperatureTopic());
+        this.gsrTable = getCache(topics.getGsrTopic());
+        this.accelerationTable = getCache(topics.getAccelerationTopic());
+        this.ppgRawTable = getCache(topics.getPhotoRawTopic());
+        this.ledCurrentTable = getCache(topics.getLedCurrentTopic());
         this.batteryTopic = topics.getBatteryStateTopic();
-
-        this.biovotionService = biovotionService;
-        this.context = context;
 
         this.bleServiceConnectionIsBound = false;
 
@@ -191,31 +188,28 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
         this.utcBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
 
         synchronized (this) {
-            this.deviceStatus = new BiovotionDeviceStatus();
-            this.deviceStatus.getId().setUserId(groupId);
-            this.deviceName = null;
-            this.isClosed = true;
             this.isConnected = false;
-            this.acceptableIds = null;
         }
     }
 
-
-    public void close() {
+    @Override
+    public void close() throws IOException {
+        if (isClosed()) {
+            return;
+        }
+        super.close();
+        logger.info("Biovotion VSM Closing device {}", this);
         executor.shutdown();
 
-        synchronized (this) {
-            if (this.isClosed) {
-                return;
-            }
-            logger.info("Biovotion VSM Closing device {}", deviceName);
-            this.isClosed = true;
+        if (vsmScanner != null && vsmScanner.isScanning()) {
+            vsmScanner.stopScanning();
         }
-        if (vsmScanner != null && vsmScanner.isScanning()) vsmScanner.stopScanning();
-        if (vsmDevice != null && vsmDevice.isConnected()) vsmDevice.disconnect();
-        if (vsmBleService != null && vsmBleService.connectionState() == BleServiceObserver.ConnectionState.GATT_CONNECTED) vsmBleService.disconnect();
-
-        updateStatus(DeviceStatusListener.Status.DISCONNECTED);
+        if (vsmDevice != null && vsmDevice.isConnected()) {
+            vsmDevice.disconnect();
+        }
+        if (vsmBleService != null && vsmBleService.connectionState() == BleServiceObserver.ConnectionState.GATT_CONNECTED) {
+            vsmBleService.disconnect();
+        }
     }
 
 
@@ -228,8 +222,8 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
         logger.info("Biovotion VSM searching for device.");
 
         // Initializes a Bluetooth adapter.
-        final BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-        vsmBluetoothAdapter = bluetoothManager.getAdapter();
+        BluetoothManager bluetoothManager = (BluetoothManager) getService().getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter vsmBluetoothAdapter = bluetoothManager.getAdapter();
 
         // Create a VSM scanner and register to be notified when VSM devices have been found
         vsmScanner = new VsmScanner(vsmBluetoothAdapter, this);
@@ -237,7 +231,6 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
 
         synchronized (this) {
             this.acceptableIds = Strings.containsPatterns(acceptableIds);
-            this.isClosed = false;
         }
 
         if (gapFuture != null) {
@@ -272,40 +265,11 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
         }, VsmConstants.UTC_INTERVAL_MS, VsmConstants.UTC_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
-    @Override
-    public synchronized boolean isClosed() {
-        return isClosed;
-    }
-
-    @Override
-    public BiovotionDeviceStatus getState() {
-        return deviceStatus;
-    }
-
-    @Override
-    public synchronized String getName() {
-        return deviceName;
-    }
-
-    @Override
-    public synchronized boolean equals(Object other) {
-        return other == this
-                || other != null && getClass().equals(other.getClass())
-                && deviceStatus.getId().getSourceId() != null
-                && deviceStatus.getId().equals(((BiovotionDeviceManager) other).deviceStatus.getId());
-    }
-
-    @Override
-    public int hashCode() {
-        return deviceStatus.getId().hashCode();
-    }
-
-    private synchronized void updateStatus(DeviceStatusListener.Status status) {
-        if (status == deviceStatus.getStatus()) return;
-        this.deviceStatus.setStatus(status);
+    protected synchronized void updateStatus(DeviceStatusListener.Status status) {
+        if (status == getState().getStatus()) return;
 
         if (status == DeviceStatusListener.Status.DISCONNECTED && bleServiceConnectionIsBound) {
-            context.unbindService(bleServiceConnection);
+            getService().unbindService(bleServiceConnection);
             bleServiceConnectionIsBound = false;
             logger.info("Biovotion VSM BLE service unbound.");
         }
@@ -314,15 +278,15 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
             logger.info("Biovotion VSM empty remaining data stacks.");
             // empty remaining records from raw data stacks
             while (!gap_raw_stack_acc.isEmpty()) {
-                dataHandler.addMeasurement(accelerationTable, deviceStatus.getId(), gap_raw_stack_acc.removeFirst());
-                dataHandler.addMeasurement(ppgRawTable, deviceStatus.getId(), gap_raw_stack_ppg.removeFirst());
+                send(accelerationTable, gap_raw_stack_acc.removeFirst());
+                send(ppgRawTable, gap_raw_stack_ppg.removeFirst());
             }
             while (!gap_raw_stack_led_current.isEmpty()) {
-                dataHandler.addMeasurement(ledCurrentTable, deviceStatus.getId(), gap_raw_stack_led_current.removeFirst());
+                send(ledCurrentTable, gap_raw_stack_led_current.removeFirst());
             }
         }
 
-        this.biovotionService.deviceStatusUpdated(this, status);
+        super.updateStatus(status);
     }
 
 
@@ -373,10 +337,16 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
         this.isConnected = false;
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
 
-        if (vsmDevice != null) vsmDevice.removeListeners();
-        if (vsmStreamController != null) vsmStreamController.removeListeners();
+        if (vsmDevice != null) {
+            vsmDevice.removeListeners();
+        }
+        if (vsmStreamController != null) {
+            vsmStreamController.removeListeners();
+        }
         vsmStreamController = null;
-        if (vsmParameterController != null) vsmParameterController.removeListeners();
+        if (vsmParameterController != null) {
+            vsmParameterController.removeListeners();
+        }
         vsmParameterController = null;
     }
 
@@ -386,10 +356,16 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
         this.isConnected = false;
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
 
-        if (vsmDevice != null) vsmDevice.removeListeners();
-        if (vsmStreamController != null) vsmStreamController.removeListeners();
+        if (vsmDevice != null) {
+            vsmDevice.removeListeners();
+        }
+        if (vsmStreamController != null) {
+            vsmStreamController.removeListeners();
+        }
         vsmStreamController = null;
-        if (vsmParameterController != null) vsmParameterController.removeListeners();
+        if (vsmParameterController != null) {
+            vsmParameterController.removeListeners();
+        }
         vsmParameterController = null;
     }
 
@@ -414,22 +390,36 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 && !Strings.findAny(acceptableIds, descriptor.name())
                 && !Strings.findAny(acceptableIds, descriptor.address())) {
             logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), "");
-            biovotionService.deviceFailedToConnect(descriptor.name());
+            getService().deviceFailedToConnect(descriptor.name());
             return;
         }
 
-        synchronized (this) {
-            this.deviceName = descriptor.name();
-            this.deviceStatus.getId().setSourceId(descriptor.address());
-        }
-        logger.info("Biovotion VSM device Name: {} ID: {}", this.deviceName, descriptor.address());
+        vsmDescriptor = descriptor;
+        setName(descriptor.name());
+
+        Map<String, String> attributes = new ArrayMap<>(2);
+        attributes.put("name", descriptor.name());
+        attributes.put("macAddress", descriptor.address());
+        attributes.put("sdk", "vsm-5.1.3-release.aar");
+        // register device now, start listening to the device after the registration is successful
+        getService().registerDevice(descriptor.address(), descriptor.name(), attributes);
+
+        logger.info("Biovotion VSM device Name: {} ID: {}", descriptor.name(), descriptor.address());
+    }
+
+    @Override
+    public void didRegister(AppSource source) {
+        super.didRegister(source);
+
+        getState().getId().setSourceId(source.getSourceId());
 
         vsmDevice = VsmDevice.sharedInstance();
-        vsmDevice.setDescriptor(descriptor);
+        vsmDevice.setDescriptor(vsmDescriptor);
 
         // Bind the shared BLE service
-        Intent gattServiceIntent = new Intent(context, BleService.class);
-        bleServiceConnectionIsBound = context.bindService(gattServiceIntent, bleServiceConnection, context.BIND_AUTO_CREATE);
+        Intent gattServiceIntent = new Intent(getService(), BleService.class);
+        bleServiceConnectionIsBound = getService().bindService(gattServiceIntent,
+                bleServiceConnection, Context.BIND_AUTO_CREATE);
 
         vsmDevice.addListener(this);
     }
@@ -445,12 +435,9 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
         // TODO: handle error
     }
 
-
-
     /*
      * ParameterListener interface
      */
-
     @Override
     public void onParameterWritten(@NonNull final ParameterController ctrl, int id) {
         logger.info("Biovotion VSM Parameter written: {}", id);
@@ -645,6 +632,8 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
     @Override
     public void onStreamValueReceived(@NonNull final StreamValue unit) {
         logger.info("Biovotion VSM Data recieved: {}", unit.type);
+        double timeReceived = System.currentTimeMillis() / 1000d;
+        BiovotionDeviceStatus deviceStatus = getState();
 
         switch (unit.type) {
             case BatteryState:
@@ -653,10 +642,10 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 deviceStatus.setBattery(battery.capacity, battery.chargeRate, battery.voltage, battery.state);
                 float[] latestBattery = deviceStatus.getBattery();
 
-                BiovotionVSMBatteryState value = new BiovotionVSMBatteryState((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1BatteryLevel value = new BiovotionVsm1BatteryLevel((double) unit.timestamp, timeReceived,
                         latestBattery[0], latestBattery[1], latestBattery[2], latestBattery[3]);
 
-                dataHandler.trySend(batteryTopic, 0L, deviceStatus.getId(), value);
+                trySend(batteryTopic, 0L, value);
                 break;
 
             case Algo1:
@@ -668,16 +657,16 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 float[] latestSpo2 = deviceStatus.getSpO2();
                 float[] latestHr = deviceStatus.getHeartRateAll();
 
-                BiovotionVSMBloodPulseWave bpwValue = new BiovotionVSMBloodPulseWave((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1BloodPulseWave bpwValue = new BiovotionVsm1BloodPulseWave((double) unit.timestamp, timeReceived,
                         latestBPW[0], latestBPW[1]);
-                BiovotionVSMSpO2 spo2Value = new BiovotionVSMSpO2((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1OxygenSaturation spo2Value = new BiovotionVsm1OxygenSaturation((double) unit.timestamp, timeReceived,
                         latestSpo2[0], latestSpo2[1]);
-                BiovotionVSMHeartRate hrValue = new BiovotionVSMHeartRate((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1HeartRate hrValue = new BiovotionVsm1HeartRate((double) unit.timestamp, timeReceived,
                         latestHr[0], latestHr[1]);
 
-                dataHandler.addMeasurement(bpwTable, deviceStatus.getId(), bpwValue);
-                dataHandler.addMeasurement(spo2Table, deviceStatus.getId(), spo2Value);
-                dataHandler.addMeasurement(hrTable, deviceStatus.getId(), hrValue);
+                send(bpwTable, bpwValue);
+                send(spo2Table, spo2Value);
+                send(hrTable, hrValue);
                 break;
 
             case Algo2:
@@ -689,16 +678,16 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 float[] latestRR = deviceStatus.getRespirationRate();
                 float[] latestEnergy = deviceStatus.getEnergy();
 
-                BiovotionVSMHeartRateVariability hrvValue = new BiovotionVSMHeartRateVariability((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1HeartRateVariability hrvValue = new BiovotionVsm1HeartRateVariability((double) unit.timestamp, timeReceived,
                         latestHRV[0], latestHRV[1]);
-                BiovotionVSMRespirationRate rrValue = new BiovotionVSMRespirationRate((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1RespirationRate rrValue = new BiovotionVsm1RespirationRate((double) unit.timestamp, timeReceived,
                         latestRR[0], latestRR[1]);
-                BiovotionVSMEnergy energyValue = new BiovotionVSMEnergy((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1Energy energyValue = new BiovotionVsm1Energy((double) unit.timestamp, timeReceived,
                         latestEnergy[0], latestEnergy[1]);
 
-                dataHandler.addMeasurement(hrvTable, deviceStatus.getId(), hrvValue);
-                dataHandler.addMeasurement(rrTable, deviceStatus.getId(), rrValue);
-                dataHandler.addMeasurement(energyTable, deviceStatus.getId(), energyValue);
+                send(hrvTable, hrvValue);
+                send(rrTable, rrValue);
+                send(energyTable, energyValue);
                 break;
 
             case RawBoard:
@@ -708,13 +697,13 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 float[] latestTemp = deviceStatus.getTemperatureAll();
                 float[] latestGSR = deviceStatus.getGalvanicSkinResponse();
 
-                BiovotionVSMTemperature tempValue = new BiovotionVSMTemperature((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1Temperature tempValue = new BiovotionVsm1Temperature((double) unit.timestamp, timeReceived,
                         latestTemp[0], latestTemp[1], latestTemp[2]);
-                BiovotionVSMGalvanicSkinResponse gsrValue = new BiovotionVSMGalvanicSkinResponse((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1GalvanicSkinResponse gsrValue = new BiovotionVsm1GalvanicSkinResponse((double) unit.timestamp, timeReceived,
                         latestGSR[0], latestGSR[1]);
 
-                dataHandler.addMeasurement(temperatureTable, deviceStatus.getId(), tempValue);
-                dataHandler.addMeasurement(gsrTable, deviceStatus.getId(), gsrValue);
+                send(temperatureTable, tempValue);
+                send(gsrTable, gsrValue);
                 break;
 
             case RawAlgo:
@@ -727,17 +716,17 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                     float[] latestAcc = deviceStatus.getAcceleration();
                     float[] latestPPG = deviceStatus.getPhotoRaw();
 
-                    BiovotionVSMAcceleration accValue = new BiovotionVSMAcceleration((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                    BiovotionVsm1Acceleration accValue = new BiovotionVsm1Acceleration((double) unit.timestamp, timeReceived,
                             latestAcc[0], latestAcc[1], latestAcc[2]);
-                    BiovotionVSMPhotoRaw ppgValue = new BiovotionVSMPhotoRaw((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                    BiovotionVsm1PpgRaw ppgValue = new BiovotionVsm1PpgRaw((double) unit.timestamp, timeReceived,
                             latestPPG[0], latestPPG[1], latestPPG[2], latestPPG[3]);
 
                     // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTable and start over
                     // since acc and ppg raw data always arrive in the same unit, can just check for one and empty both
                     if (gap_raw_stack_acc.peekFirst() != null && accValue.getTime() > gap_raw_stack_acc.peekFirst().getTime()) {
                         while (!gap_raw_stack_acc.isEmpty()) {
-                            dataHandler.addMeasurement(accelerationTable, deviceStatus.getId(), gap_raw_stack_acc.removeFirst());
-                            dataHandler.addMeasurement(ppgRawTable, deviceStatus.getId(), gap_raw_stack_ppg.removeFirst());
+                            send(accelerationTable, gap_raw_stack_acc.removeFirst());
+                            send(ppgRawTable, gap_raw_stack_ppg.removeFirst());
                         }
                     }
                     gap_raw_stack_acc.addFirst(accValue);
@@ -753,13 +742,13 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 deviceStatus.setLedCurrent(ledcurrent.red, ledcurrent.green, ledcurrent.ir, ledcurrent.offset);
                 float[] latestLedCurrent = deviceStatus.getLedCurrent();
 
-                BiovotionVSMLedCurrent ledValue = new BiovotionVSMLedCurrent((double) unit.timestamp, System.currentTimeMillis() / 1000d,
+                BiovotionVsm1LedCurrent ledValue = new BiovotionVsm1LedCurrent((double) unit.timestamp, timeReceived,
                     latestLedCurrent[0], latestLedCurrent[1], latestLedCurrent[2], latestLedCurrent[3]);
 
                 // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTable and start over
                 if (gap_raw_stack_led_current.peekFirst() != null && ledValue.getTime() > gap_raw_stack_led_current.peekFirst().getTime()) {
                     while (!gap_raw_stack_led_current.isEmpty()) {
-                        dataHandler.addMeasurement(ledCurrentTable, deviceStatus.getId(), gap_raw_stack_led_current.removeFirst());
+                        send(ledCurrentTable, gap_raw_stack_led_current.removeFirst());
                     }
                 }
                 gap_raw_stack_led_current.addFirst(ledValue);
@@ -767,4 +756,10 @@ public class BiovotionDeviceManager implements DeviceManager, VsmDeviceListener,
                 break;
         }
     }
+
+    @Override
+    protected void registerDeviceAtReady() {
+        // custom registration
+    }
+
 }

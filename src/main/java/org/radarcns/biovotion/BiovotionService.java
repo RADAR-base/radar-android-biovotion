@@ -16,18 +16,21 @@
 
 package org.radarcns.biovotion;
 
-import org.radarcns.android.device.BaseDeviceState;
-import org.radarcns.android.device.DeviceManager;
+import org.apache.avro.specific.SpecificRecord;
 import org.radarcns.android.device.DeviceService;
-import org.radarcns.android.device.DeviceTopics;
+import org.radarcns.kafka.ObservationKey;
+import org.radarcns.topic.AvroTopic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * A service that manages a BiovotionDeviceManager and a TableDataHandler to send store the data of a
  * Biovotion VSM and send it to a Kafka REST proxy.
  */
-public class BiovotionService extends DeviceService {
+public class BiovotionService extends DeviceService<BiovotionDeviceStatus> {
     private static final Logger logger = LoggerFactory.getLogger(BiovotionService.class);
     private BiovotionTopics topics;
 
@@ -40,17 +43,33 @@ public class BiovotionService extends DeviceService {
     }
 
     @Override
-    protected DeviceManager createDeviceManager() {
-        return new BiovotionDeviceManager(this, this, getUserId(), getDataHandler(), topics);
+    protected BiovotionDeviceManager createDeviceManager() {
+        return new BiovotionDeviceManager(this);
     }
 
     @Override
-    protected BaseDeviceState getDefaultState() {
+    protected BiovotionDeviceStatus getDefaultState() {
         return new BiovotionDeviceStatus();
     }
 
     @Override
-    protected DeviceTopics getTopics() {
+    protected List<AvroTopic<ObservationKey, ? extends SpecificRecord>> getCachedTopics() {
+        return Arrays.<AvroTopic<ObservationKey, ? extends SpecificRecord>>asList(
+                topics.getAccelerationTopic(),
+                topics.getBloodPulseWaveTopic(),
+                topics.getEnergyTopic(),
+                topics.getGsrTopic(),
+                topics.getHeartRateTopic(),
+                topics.getHrvTopic(),
+                topics.getLedCurrentTopic(),
+                topics.getPhotoRawTopic(),
+                topics.getRespirationRateTopic(),
+                topics.getSpO2Topic(),
+                topics.getTemperatureTopic());
+    }
+
+    @Override
+    protected BiovotionTopics getTopics() {
         return topics;
     }
 }
