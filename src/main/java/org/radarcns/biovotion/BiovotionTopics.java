@@ -58,40 +58,28 @@ public class BiovotionTopics extends DeviceTopics {
 
     private BiovotionTopics() {
         batteryStateTopic = createTopic("android_biovotion_vsm1_battery_level",
-                BiovotionVsm1BatteryLevel.getClassSchema(),
                 BiovotionVsm1BatteryLevel.class);
         bloodPulseWaveTopic = createTopic("android_biovotion_vsm1_blood_volume_pulse",
-                BiovotionVsm1BloodPulseWave.getClassSchema(),
                 BiovotionVsm1BloodPulseWave.class);
         spo2Topic = createTopic("android_biovotion_vsm1_oxygen_saturation",
-                BiovotionVsm1OxygenSaturation.getClassSchema(),
                 BiovotionVsm1OxygenSaturation.class);
         heartRateTopic = createTopic("android_biovotion_vsm1_heartrate",
-                BiovotionVsm1HeartRate.getClassSchema(),
                 BiovotionVsm1HeartRate.class);
         hrvTopic = createTopic("android_biovotion_vsm1_heartrate_variability",
-                BiovotionVsm1HeartRateVariability.getClassSchema(),
                 BiovotionVsm1HeartRateVariability.class);
         respirationTopic = createTopic("android_biovotion_vsm1_respiration_rate",
-                BiovotionVsm1RespirationRate.getClassSchema(),
                 BiovotionVsm1RespirationRate.class);
         energyTopic = createTopic("android_biovotion_vsm1_energy",
-                BiovotionVsm1Energy.getClassSchema(),
                 BiovotionVsm1Energy.class);
         temperatureTopic = createTopic("android_biovotion_vsm1_temperature",
-                BiovotionVsm1Temperature.getClassSchema(),
                 BiovotionVsm1Temperature.class);
         gsrTopic = createTopic("android_biovotion_vsm1_galvanic_skin_response",
-                BiovotionVsm1GalvanicSkinResponse.getClassSchema(),
                 BiovotionVsm1GalvanicSkinResponse.class);
         accelerationTopic = createTopic("android_biovotion_vsm1_acceleration",
-                BiovotionVsm1Acceleration.getClassSchema(),
                 BiovotionVsm1Acceleration.class);
         ppgRawTopic = createTopic("android_biovotion_vsm1_ppg_raw",
-                BiovotionVsm1PpgRaw.getClassSchema(),
                 BiovotionVsm1PpgRaw.class);
         ledCurrentTopic = createTopic("android_biovotion_vsm1_led_current",
-                BiovotionVsm1LedCurrent.getClassSchema(),
                 BiovotionVsm1LedCurrent.class);
     }
 

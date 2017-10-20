@@ -88,17 +88,17 @@ public class BiovotionDeviceManager
         implements VsmDeviceListener, VsmDiscoveryListener, StreamListener, ParameterListener {
     private static final Logger logger = LoggerFactory.getLogger(BiovotionDeviceManager.class);
 
-    private final DataCache<ObservationKey, BiovotionVsm1BloodPulseWave> bpwTable;
-    private final DataCache<ObservationKey, BiovotionVsm1OxygenSaturation> spo2Table;
-    private final DataCache<ObservationKey, BiovotionVsm1HeartRate> hrTable;
-    private final DataCache<ObservationKey, BiovotionVsm1HeartRateVariability> hrvTable;
-    private final DataCache<ObservationKey, BiovotionVsm1RespirationRate> rrTable;
-    private final DataCache<ObservationKey, BiovotionVsm1Energy> energyTable;
-    private final DataCache<ObservationKey, BiovotionVsm1Temperature> temperatureTable;
-    private final DataCache<ObservationKey, BiovotionVsm1GalvanicSkinResponse> gsrTable;
-    private final DataCache<ObservationKey, BiovotionVsm1Acceleration> accelerationTable;
-    private final DataCache<ObservationKey, BiovotionVsm1PpgRaw> ppgRawTable;
-    private final DataCache<ObservationKey, BiovotionVsm1LedCurrent> ledCurrentTable;
+    private final AvroTopic<ObservationKey, BiovotionVsm1BloodPulseWave> bpwTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1OxygenSaturation> spo2Topic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1HeartRate> hrTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1HeartRateVariability> hrvTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1RespirationRate> rrTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1Energy> energyTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1Temperature> temperatureTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1GalvanicSkinResponse> gsrTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1Acceleration> accelerationTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1PpgRaw> ppgRawTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1LedCurrent> ledCurrentTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1BatteryLevel> batteryTopic;
 
     private boolean isConnected;
@@ -157,23 +157,23 @@ public class BiovotionDeviceManager
             vsmBleService = null;
         }
     };
-    private Pattern[] acceptableIds;
+    private Pattern[] accepTopicIds;
 
 
     public BiovotionDeviceManager(BiovotionService service) {
         super(service);
         BiovotionTopics topics = service.getTopics();
-        this.bpwTable = getCache(topics.getBloodPulseWaveTopic());
-        this.spo2Table = getCache(topics.getSpO2Topic());
-        this.hrTable = getCache(topics.getHeartRateTopic());
-        this.hrvTable = getCache(topics.getHrvTopic());
-        this.rrTable = getCache(topics.getRespirationRateTopic());
-        this.energyTable = getCache(topics.getEnergyTopic());
-        this.temperatureTable = getCache(topics.getTemperatureTopic());
-        this.gsrTable = getCache(topics.getGsrTopic());
-        this.accelerationTable = getCache(topics.getAccelerationTopic());
-        this.ppgRawTable = getCache(topics.getPhotoRawTopic());
-        this.ledCurrentTable = getCache(topics.getLedCurrentTopic());
+        this.bpwTopic = topics.getBloodPulseWaveTopic();
+        this.spo2Topic = topics.getSpO2Topic();
+        this.hrTopic = topics.getHeartRateTopic();
+        this.hrvTopic = topics.getHrvTopic();
+        this.rrTopic = topics.getRespirationRateTopic();
+        this.energyTopic = topics.getEnergyTopic();
+        this.temperatureTopic = topics.getTemperatureTopic();
+        this.gsrTopic = topics.getGsrTopic();
+        this.accelerationTopic = topics.getAccelerationTopic();
+        this.ppgRawTopic = topics.getPhotoRawTopic();
+        this.ledCurrentTopic = topics.getLedCurrentTopic();
         this.batteryTopic = topics.getBatteryStateTopic();
 
         this.bleServiceConnectionIsBound = false;
@@ -218,7 +218,7 @@ public class BiovotionDeviceManager
      */
 
     @Override
-    public void start(@NonNull final Set<String> acceptableIds) {
+    public void start(@NonNull final Set<String> accepTopicIds) {
         logger.info("Biovotion VSM searching for device.");
 
         // Initializes a Bluetooth adapter.
@@ -230,7 +230,7 @@ public class BiovotionDeviceManager
         vsmScanner.startScanning();
 
         synchronized (this) {
-            this.acceptableIds = Strings.containsPatterns(acceptableIds);
+            this.accepTopicIds = Strings.containsPatterns(accepTopicIds);
         }
 
         if (gapFuture != null) {
@@ -278,11 +278,11 @@ public class BiovotionDeviceManager
             logger.info("Biovotion VSM empty remaining data stacks.");
             // empty remaining records from raw data stacks
             while (!gap_raw_stack_acc.isEmpty()) {
-                send(accelerationTable, gap_raw_stack_acc.removeFirst());
-                send(ppgRawTable, gap_raw_stack_ppg.removeFirst());
+                send(accelerationTopic, gap_raw_stack_acc.removeFirst());
+                send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
             }
             while (!gap_raw_stack_led_current.isEmpty()) {
-                send(ledCurrentTable, gap_raw_stack_led_current.removeFirst());
+                send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
             }
         }
 
@@ -386,10 +386,10 @@ public class BiovotionDeviceManager
         logger.info("Biovotion VSM device found.");
         vsmScanner.stopScanning();
 
-        if (acceptableIds.length > 0
-                && !Strings.findAny(acceptableIds, descriptor.name())
-                && !Strings.findAny(acceptableIds, descriptor.address())) {
-            logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), "");
+        if (accepTopicIds.length > 0
+                && !Strings.findAny(accepTopicIds, descriptor.name())
+                && !Strings.findAny(accepTopicIds, descriptor.address())) {
+            logger.info("Biovotion VSM Device {} with ID {} is not listed in accepTopic device IDs", descriptor.name(), "");
             getService().deviceFailedToConnect(descriptor.name());
             return;
         }
@@ -664,9 +664,9 @@ public class BiovotionDeviceManager
                 BiovotionVsm1HeartRate hrValue = new BiovotionVsm1HeartRate((double) unit.timestamp, timeReceived,
                         latestHr[0], latestHr[1]);
 
-                send(bpwTable, bpwValue);
-                send(spo2Table, spo2Value);
-                send(hrTable, hrValue);
+                send(bpwTopic, bpwValue);
+                send(spo2Topic, spo2Value);
+                send(hrTopic, hrValue);
                 break;
 
             case Algo2:
@@ -685,9 +685,9 @@ public class BiovotionDeviceManager
                 BiovotionVsm1Energy energyValue = new BiovotionVsm1Energy((double) unit.timestamp, timeReceived,
                         latestEnergy[0], latestEnergy[1]);
 
-                send(hrvTable, hrvValue);
-                send(rrTable, rrValue);
-                send(energyTable, energyValue);
+                send(hrvTopic, hrvValue);
+                send(rrTopic, rrValue);
+                send(energyTopic, energyValue);
                 break;
 
             case RawBoard:
@@ -702,8 +702,8 @@ public class BiovotionDeviceManager
                 BiovotionVsm1GalvanicSkinResponse gsrValue = new BiovotionVsm1GalvanicSkinResponse((double) unit.timestamp, timeReceived,
                         latestGSR[0], latestGSR[1]);
 
-                send(temperatureTable, tempValue);
-                send(gsrTable, gsrValue);
+                send(temperatureTopic, tempValue);
+                send(gsrTopic, gsrValue);
                 break;
 
             case RawAlgo:
@@ -721,12 +721,12 @@ public class BiovotionDeviceManager
                     BiovotionVsm1PpgRaw ppgValue = new BiovotionVsm1PpgRaw((double) unit.timestamp, timeReceived,
                             latestPPG[0], latestPPG[1], latestPPG[2], latestPPG[3]);
 
-                    // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTable and start over
+                    // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTopic and start over
                     // since acc and ppg raw data always arrive in the same unit, can just check for one and empty both
                     if (gap_raw_stack_acc.peekFirst() != null && accValue.getTime() > gap_raw_stack_acc.peekFirst().getTime()) {
                         while (!gap_raw_stack_acc.isEmpty()) {
-                            send(accelerationTable, gap_raw_stack_acc.removeFirst());
-                            send(ppgRawTable, gap_raw_stack_ppg.removeFirst());
+                            send(accelerationTopic, gap_raw_stack_acc.removeFirst());
+                            send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
                         }
                     }
                     gap_raw_stack_acc.addFirst(accValue);
@@ -745,10 +745,10 @@ public class BiovotionDeviceManager
                 BiovotionVsm1LedCurrent ledValue = new BiovotionVsm1LedCurrent((double) unit.timestamp, timeReceived,
                     latestLedCurrent[0], latestLedCurrent[1], latestLedCurrent[2], latestLedCurrent[3]);
 
-                // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTable and start over
+                // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTopic and start over
                 if (gap_raw_stack_led_current.peekFirst() != null && ledValue.getTime() > gap_raw_stack_led_current.peekFirst().getTime()) {
                     while (!gap_raw_stack_led_current.isEmpty()) {
-                        send(ledCurrentTable, gap_raw_stack_led_current.removeFirst());
+                        send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
                     }
                 }
                 gap_raw_stack_led_current.addFirst(ledValue);
