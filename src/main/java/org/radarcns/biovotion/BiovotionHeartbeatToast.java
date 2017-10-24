@@ -33,23 +33,24 @@ import java.util.List;
 /**
  * Shows recently collected heartbeats in a Toast.
  */
-public class BiovotionHeartbeatToast extends AsyncTask<DeviceServiceConnection<BiovotionDeviceStatus>, Void, String[]> {
-    private final Context context;
+public class BiovotionHeartbeatToast extends AsyncTask<Void, Void, String> {
     private static final DecimalFormat singleDecimal = new DecimalFormat("0.0");
-    private static final AvroTopic<ObservationKey, BiovotionVsm1HeartRate> topic = BiovotionTopics
-            .getInstance().getHeartRateTopic();
+    private final Context context;
+    private final DeviceServiceConnection<BiovotionDeviceStatus> connection;
 
-    public BiovotionHeartbeatToast(Context context) {
+    public BiovotionHeartbeatToast(Context context, DeviceServiceConnection<BiovotionDeviceStatus> connection) {
         this.context = context;
+        this.connection = connection;
     }
 
     @Override
     @SafeVarargs
-    protected final String[] doInBackground(DeviceServiceConnection<BiovotionDeviceStatus>... params) {
-        String[] results = new String[params.length];
-        for (int i = 0; i < params.length; i++) {
-            try {
-                List<Record<ObservationKey, BiovotionVsm1HeartRate>> measurements = params[i].getRecords(topic, 25);
+    protected final String doInBackground(Void... params) {
+        AvroTopic<ObservationKey, BiovotionVsm1HeartRate> topic = BiovotionDeviceManager.getHeartRateTopic();
+
+        try {
+            if (topic != null) {
+                List<Record<ObservationKey, BiovotionVsm1HeartRate>> measurements = connection.getRecords(topic, 25);
                 if (!measurements.isEmpty()) {
                     StringBuilder sb = new StringBuilder(3200); // <32 chars * 100 measurements
                     for (Record<ObservationKey, BiovotionVsm1HeartRate> measurement : measurements) {
@@ -59,25 +60,17 @@ public class BiovotionHeartbeatToast extends AsyncTask<DeviceServiceConnection<B
                         sb.append(singleDecimal.format(measurement.value.getHeartRate()));
                         sb.append(" bpm\n");
                     }
-                    results[i] = sb.toString();
-                } else {
-                    results[i] = null;
+                    return sb.toString();
                 }
-            } catch (IOException e) {
-                results[i] = null;
             }
+        } catch (IOException ignore) {
         }
-        return results;
+
+        return "No heart rate collected yet.";
     }
 
     @Override
-    protected void onPostExecute(String[] strings) {
-        for (String s : strings) {
-            if (s == null) {
-                Boast.makeText(context, "No heart rate collected yet.", Toast.LENGTH_SHORT).show();
-            } else {
-                Boast.makeText(context, s, Toast.LENGTH_LONG).show();
-            }
-        }
+    protected void onPostExecute(String result) {
+        Boast.makeText(context, result, Toast.LENGTH_LONG).show();
     }
 }

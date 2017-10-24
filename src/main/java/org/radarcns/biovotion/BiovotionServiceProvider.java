@@ -44,7 +44,7 @@ public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDev
 
     @SuppressWarnings("unchecked")
     public void showDetailView() {
-        new BiovotionHeartbeatToast(getRadarService()).execute(getConnection());
+        new BiovotionHeartbeatToast(getRadarService(), getConnection()).execute();
     }
 
     @Override

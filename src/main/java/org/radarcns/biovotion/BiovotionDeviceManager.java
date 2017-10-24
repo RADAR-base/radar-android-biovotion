@@ -90,7 +90,7 @@ public class BiovotionDeviceManager
 
     private final AvroTopic<ObservationKey, BiovotionVsm1BloodPulseWave> bpwTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1OxygenSaturation> spo2Topic;
-    private final AvroTopic<ObservationKey, BiovotionVsm1HeartRate> hrTopic;
+    private static volatile AvroTopic<ObservationKey, BiovotionVsm1HeartRate> hrTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1HeartRateVariability> hrvTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1RespirationRate> rrTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1Energy> energyTopic;
@@ -162,19 +162,31 @@ public class BiovotionDeviceManager
 
     public BiovotionDeviceManager(BiovotionService service) {
         super(service);
-        BiovotionTopics topics = service.getTopics();
-        this.bpwTopic = topics.getBloodPulseWaveTopic();
-        this.spo2Topic = topics.getSpO2Topic();
-        this.hrTopic = topics.getHeartRateTopic();
-        this.hrvTopic = topics.getHrvTopic();
-        this.rrTopic = topics.getRespirationRateTopic();
-        this.energyTopic = topics.getEnergyTopic();
-        this.temperatureTopic = topics.getTemperatureTopic();
-        this.gsrTopic = topics.getGsrTopic();
-        this.accelerationTopic = topics.getAccelerationTopic();
-        this.ppgRawTopic = topics.getPhotoRawTopic();
-        this.ledCurrentTopic = topics.getLedCurrentTopic();
-        this.batteryTopic = topics.getBatteryStateTopic();
+
+        this.bpwTopic = createTopic("android_biovotion_vsm1_blood_volume_pulse",
+                BiovotionVsm1BloodPulseWave.class);
+        this.spo2Topic = createTopic("android_biovotion_vsm1_oxygen_saturation",
+                BiovotionVsm1OxygenSaturation.class);
+        hrTopic = createTopic("android_biovotion_vsm1_heartrate",
+                BiovotionVsm1HeartRate.class);
+        this.hrvTopic = createTopic("android_biovotion_vsm1_heartrate_variability",
+                BiovotionVsm1HeartRateVariability.class);
+        this.rrTopic = createTopic("android_biovotion_vsm1_respiration_rate",
+                BiovotionVsm1RespirationRate.class);
+        this.energyTopic = createTopic("android_biovotion_vsm1_energy",
+                BiovotionVsm1Energy.class);
+        this.temperatureTopic = createTopic("android_biovotion_vsm1_temperature",
+                BiovotionVsm1Temperature.class);
+        this.gsrTopic = createTopic("android_biovotion_vsm1_galvanic_skin_response",
+                BiovotionVsm1GalvanicSkinResponse.class);
+        this.accelerationTopic = createTopic("android_biovotion_vsm1_acceleration",
+                BiovotionVsm1Acceleration.class);
+        this.ppgRawTopic = createTopic("android_biovotion_vsm1_ppg_raw",
+                BiovotionVsm1PpgRaw.class);
+        this.ledCurrentTopic = createTopic("android_biovotion_vsm1_led_current",
+                BiovotionVsm1LedCurrent.class);
+        this.batteryTopic = createTopic("android_biovotion_vsm1_battery_level",
+                BiovotionVsm1BatteryLevel.class);
 
         this.bleServiceConnectionIsBound = false;
 
@@ -762,4 +774,8 @@ public class BiovotionDeviceManager
         // custom registration
     }
 
+
+    public static AvroTopic<ObservationKey, BiovotionVsm1HeartRate> getHeartRateTopic() {
+        return hrTopic;
+    }
 }

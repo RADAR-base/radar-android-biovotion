@@ -32,15 +32,6 @@ import java.util.List;
  */
 public class BiovotionService extends DeviceService<BiovotionDeviceStatus> {
     private static final Logger logger = LoggerFactory.getLogger(BiovotionService.class);
-    private BiovotionTopics topics;
-
-    @Override
-    public void onCreate() {
-        logger.info("Creating Biovotion VSM service {}", this);
-        super.onCreate();
-
-        topics = BiovotionTopics.getInstance();
-    }
 
     @Override
     protected BiovotionDeviceManager createDeviceManager() {
@@ -50,26 +41,5 @@ public class BiovotionService extends DeviceService<BiovotionDeviceStatus> {
     @Override
     protected BiovotionDeviceStatus getDefaultState() {
         return new BiovotionDeviceStatus();
-    }
-
-    @Override
-    protected List<AvroTopic<ObservationKey, ? extends SpecificRecord>> getCachedTopics() {
-        return Arrays.<AvroTopic<ObservationKey, ? extends SpecificRecord>>asList(
-                topics.getAccelerationTopic(),
-                topics.getBloodPulseWaveTopic(),
-                topics.getEnergyTopic(),
-                topics.getGsrTopic(),
-                topics.getHeartRateTopic(),
-                topics.getHrvTopic(),
-                topics.getLedCurrentTopic(),
-                topics.getPhotoRawTopic(),
-                topics.getRespirationRateTopic(),
-                topics.getSpO2Topic(),
-                topics.getTemperatureTopic());
-    }
-
-    @Override
-    protected BiovotionTopics getTopics() {
-        return topics;
     }
 }
