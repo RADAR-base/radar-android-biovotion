@@ -50,6 +50,13 @@ public final class VsmConstants {
 
 
     /**
+     * VSM sensor sampling rates
+     */
+    public final static float VSM_VS_SAMPLE_RATE = 1f; // vital sign data sample rate, in Hz
+    public final static float VSM_RAW_SAMPLE_RATE = 51.2f; // raw data sample rate, in Hz
+
+
+    /**
      * Parameter IDs according to VSM Bluetooth Comms Spec
      */
     public final static int PID_INTERFACE_VERSION                     = 0x00; // R
@@ -139,8 +146,9 @@ public final class VsmConstants {
     /**
      * GAP request miscellaneous
      */
-    public final static int GAP_MAX_PAGES     = 50; // max number of pages to get with one request
-    public final static int GAP_INTERVAL_MS   = 500; // try a new GAP request every x milliseconds
+    public final static int GAP_MAX_PAGES        = 50; // max number of pages to get with one request
+    public final static int GAP_MAX_LOOKBACK_MS  = 3600000; // max time to look back into past and get missing records
+    public final static int GAP_INTERVAL_MS      = 500; // try a new GAP request every x milliseconds
 
 
     /**
