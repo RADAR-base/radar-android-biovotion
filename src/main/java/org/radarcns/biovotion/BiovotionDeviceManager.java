@@ -90,7 +90,7 @@ public class BiovotionDeviceManager
 
     private final AvroTopic<ObservationKey, BiovotionVsm1BloodPulseWave> bpwTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1OxygenSaturation> spo2Topic;
-    private static volatile AvroTopic<ObservationKey, BiovotionVsm1HeartRate> hrTopic;
+    private final AvroTopic<ObservationKey, BiovotionVsm1HeartRate> hrTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1HeartRateVariability> hrvTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1RespirationRate> rrTopic;
     private final AvroTopic<ObservationKey, BiovotionVsm1Energy> energyTopic;
@@ -167,7 +167,7 @@ public class BiovotionDeviceManager
                 BiovotionVsm1BloodPulseWave.class);
         this.spo2Topic = createTopic("android_biovotion_vsm1_oxygen_saturation",
                 BiovotionVsm1OxygenSaturation.class);
-        hrTopic = createTopic("android_biovotion_vsm1_heartrate",
+        this.hrTopic = createTopic("android_biovotion_vsm1_heartrate",
                 BiovotionVsm1HeartRate.class);
         this.hrvTopic = createTopic("android_biovotion_vsm1_heartrate_variability",
                 BiovotionVsm1HeartRateVariability.class);
@@ -772,10 +772,5 @@ public class BiovotionDeviceManager
     @Override
     protected void registerDeviceAtReady() {
         // custom registration
-    }
-
-
-    public static AvroTopic<ObservationKey, BiovotionVsm1HeartRate> getHeartRateTopic() {
-        return hrTopic;
     }
 }

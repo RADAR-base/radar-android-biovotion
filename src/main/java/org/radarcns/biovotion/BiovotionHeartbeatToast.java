@@ -35,22 +35,17 @@ import java.util.List;
  */
 public class BiovotionHeartbeatToast extends AsyncTask<Void, Void, String> {
     private static final DecimalFormat singleDecimal = new DecimalFormat("0.0");
-    private final Context context;
     private final DeviceServiceConnection<BiovotionDeviceStatus> connection;
 
-    public BiovotionHeartbeatToast(Context context, DeviceServiceConnection<BiovotionDeviceStatus> connection) {
-        this.context = context;
+    public BiovotionHeartbeatToast(DeviceServiceConnection<BiovotionDeviceStatus> connection) {
         this.connection = connection;
     }
 
     @Override
     @SafeVarargs
     protected final String doInBackground(Void... params) {
-        AvroTopic<ObservationKey, BiovotionVsm1HeartRate> topic = BiovotionDeviceManager.getHeartRateTopic();
-
         try {
-            if (topic != null) {
-                List<Record<ObservationKey, BiovotionVsm1HeartRate>> measurements = connection.getRecords(topic, 25);
+                List<Record<ObservationKey, BiovotionVsm1HeartRate>> measurements = connection.getRecords("android_biovotion_vsm1_heartrate", 25);
                 if (!measurements.isEmpty()) {
                     StringBuilder sb = new StringBuilder(3200); // <32 chars * 100 measurements
                     for (Record<ObservationKey, BiovotionVsm1HeartRate> measurement : measurements) {
@@ -62,7 +57,6 @@ public class BiovotionHeartbeatToast extends AsyncTask<Void, Void, String> {
                     }
                     return sb.toString();
                 }
-            }
         } catch (IOException ignore) {
         }
 
@@ -71,6 +65,6 @@ public class BiovotionHeartbeatToast extends AsyncTask<Void, Void, String> {
 
     @Override
     protected void onPostExecute(String result) {
-        Boast.makeText(context, result, Toast.LENGTH_LONG).show();
+        Boast.makeText(connection.getContext(), result, Toast.LENGTH_LONG).show();
     }
 }
