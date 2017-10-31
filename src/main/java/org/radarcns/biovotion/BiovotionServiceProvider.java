@@ -29,7 +29,7 @@ import static android.Manifest.permission.BLUETOOTH_ADMIN;
 public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDeviceStatus> {
     @Override
     public String getDescription() {
-        return getActivity().getString(R.string.biovotionDescription);
+        return getRadarService().getString(R.string.biovotionDescription);
     }
 
     @Override
@@ -44,7 +44,7 @@ public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDev
 
     @SuppressWarnings("unchecked")
     public void showDetailView() {
-        new BiovotionHeartbeatToast(getActivity()).execute(getConnection());
+        new BiovotionHeartbeatToast(getConnection()).execute();
     }
 
     @Override
@@ -72,6 +72,6 @@ public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDev
 
     @Override
     public String getDisplayName() {
-        return getActivity().getString(R.string.biovotionLabel);
+        return getRadarService().getString(R.string.biovotionLabel);
     }
 }
