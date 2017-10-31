@@ -18,14 +18,13 @@ package org.radarcns.biovotion;
 
 import android.content.Context;
 import android.os.AsyncTask;
-import android.os.RemoteException;
 import android.widget.Toast;
-
 import org.radarcns.android.device.DeviceServiceConnection;
-import org.radarcns.data.Record;
-import org.radarcns.key.MeasurementKey;
-import org.radarcns.topic.AvroTopic;
 import org.radarcns.android.util.Boast;
+import org.radarcns.data.Record;
+import org.radarcns.kafka.ObservationKey;
+import org.radarcns.passive.biovotion.BiovotionVsm1HeartRate;
+import org.radarcns.topic.AvroTopic;
 
 import java.io.IOException;
 import java.text.DecimalFormat;
@@ -37,7 +36,7 @@ import java.util.List;
 public class BiovotionHeartbeatToast extends AsyncTask<DeviceServiceConnection<BiovotionDeviceStatus>, Void, String[]> {
     private final Context context;
     private static final DecimalFormat singleDecimal = new DecimalFormat("0.0");
-    private static final AvroTopic<MeasurementKey, BiovotionVSMHeartRate> topic = BiovotionTopics
+    private static final AvroTopic<ObservationKey, BiovotionVsm1HeartRate> topic = BiovotionTopics
             .getInstance().getHeartRateTopic();
 
     public BiovotionHeartbeatToast(Context context) {
@@ -50,10 +49,10 @@ public class BiovotionHeartbeatToast extends AsyncTask<DeviceServiceConnection<B
         String[] results = new String[params.length];
         for (int i = 0; i < params.length; i++) {
             try {
-                List<Record<MeasurementKey, BiovotionVSMHeartRate>> measurements = params[i].getRecords(topic, 25);
+                List<Record<ObservationKey, BiovotionVsm1HeartRate>> measurements = params[i].getRecords(topic, 25);
                 if (!measurements.isEmpty()) {
                     StringBuilder sb = new StringBuilder(3200); // <32 chars * 100 measurements
-                    for (Record<MeasurementKey, BiovotionVSMHeartRate> measurement : measurements) {
+                    for (Record<ObservationKey, BiovotionVsm1HeartRate> measurement : measurements) {
                         long diffTimeMillis = System.currentTimeMillis() - (long) (1000d * measurement.value.getTimeReceived());
                         sb.append(singleDecimal.format(diffTimeMillis / 1000d));
                         sb.append(" sec. ago: ");
@@ -64,7 +63,7 @@ public class BiovotionHeartbeatToast extends AsyncTask<DeviceServiceConnection<B
                 } else {
                     results[i] = null;
                 }
-            } catch (RemoteException | IOException e) {
+            } catch (IOException e) {
                 results[i] = null;
             }
         }

@@ -16,8 +16,7 @@
 
 package org.radarcns.biovotion;
 
-import android.os.Parcelable;
-
+import android.support.annotation.NonNull;
 import org.radarcns.android.device.DeviceServiceProvider;
 
 import java.util.Arrays;
@@ -29,13 +28,13 @@ import static android.Manifest.permission.BLUETOOTH_ADMIN;
 
 public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDeviceStatus> {
     @Override
-    public Class<?> getServiceClass() {
-        return BiovotionService.class;
+    public String getDescription() {
+        return getActivity().getString(R.string.biovotionDescription);
     }
 
     @Override
-    public Parcelable.Creator<BiovotionDeviceStatus> getStateCreator() {
-        return BiovotionDeviceStatus.CREATOR;
+    public Class<?> getServiceClass() {
+        return BiovotionService.class;
     }
 
     @Override
@@ -43,6 +42,7 @@ public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDev
         return true;
     }
 
+    @SuppressWarnings("unchecked")
     public void showDetailView() {
         new BiovotionHeartbeatToast(getActivity()).execute(getConnection());
     }
@@ -50,6 +50,24 @@ public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDev
     @Override
     public List<String> needsPermissions() {
         return Arrays.asList(ACCESS_COARSE_LOCATION, BLUETOOTH, BLUETOOTH_ADMIN);
+    }
+
+    @NonNull
+    @Override
+    public String getDeviceProducer() {
+        return "Biovotion";
+    }
+
+    @NonNull
+    @Override
+    public String getDeviceModel() {
+        return "VSM1";
+    }
+
+    @NonNull
+    @Override
+    public String getVersion() {
+        return BuildConfig.VERSION_NAME;
     }
 
     @Override
