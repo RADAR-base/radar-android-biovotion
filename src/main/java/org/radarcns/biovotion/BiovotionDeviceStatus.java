@@ -175,8 +175,8 @@ public class BiovotionDeviceStatus extends BaseDeviceState {
 
 
 
-    /**
-     * setter
+    /*
+     * setters
      */
 
     public void setBattery(float level, float rate, float voltage, float status) {

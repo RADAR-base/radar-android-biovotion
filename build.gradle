@@ -20,8 +20,8 @@ android {
     defaultConfig {
         minSdkVersion 21
         targetSdkVersion 25
-        versionCode 2
-        versionName '0.1'
+        versionCode 3
+        versionName '0.2'
     }
     buildTypes {
         release {
@@ -82,8 +82,8 @@ dependencies {
     // Generic BLE library
     compile 'ch.hevs.ble.lib:hevs-ble-library:0.8.1:release@aar'
 
-    compile 'org.radarcns:radar-commons-android:0.3-SNAPSHOT'
-    compile 'org.radarcns:radar-schemas-commons:0.2-alpha.3-SNAPSHOT'
+    compile 'org.radarcns:radar-commons-android:0.3'
+    compile 'org.radarcns:radar-schemas-commons:0.2'
 
     testCompile 'junit:junit:4.12'
     testCompile 'org.slf4j:slf4j-simple:1.7.25'
@@ -108,6 +108,12 @@ task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
     classpath += configurations.compile
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+
+    options {
+        encoding "UTF-8"
+        docEncoding "UTF-8"
+        charSet "UTF-8"
+    }
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
@@ -141,6 +147,12 @@ ext.pomConfig = {
             id 'blootsvoets'
             name 'Joris Borgdorff'
             email 'joris@thehyve.nl'
+            organization 'The Hyve'
+        }
+        developer {
+            id 'strangepleasures'
+            name 'Pavel Mikhailovskii'
+            email 'pavel@thehyve.nl'
             organization 'The Hyve'
         }
     }
