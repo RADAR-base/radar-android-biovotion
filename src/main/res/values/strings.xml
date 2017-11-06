@@ -1,3 +1,7 @@
 <resources>
     <string name="biovotionLabel">Biovotion</string>
+    <string name="biovotionDescription">Collects data from Biovotion VSM1. Turn on the VSM1 to
+        connect. The connection is made over Bluetooth using the location permission. Location
+        information is not stored.
+    </string>
 </resources>
