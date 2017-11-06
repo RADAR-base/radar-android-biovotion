@@ -474,8 +474,8 @@ public class BiovotionDeviceManager
 
         // read device_mode parameter; if currently on charger, disconnect
         if (p.id() == VsmConstants.PID_DEVICE_MODE) {
-            if (p.value()[0] == VsmConstants.MOD_ONCHARGER) {
-                logger.warn("Biovotion VSM device is currently on charger, disconnecting!");
+            if (p.value()[0] == VsmConstants.MOD_ONCHARGER && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
+                logger.warn("Biovotion VSM device is currently on charger and not downloading missing data, disconnecting!");
                 // TODO: Maybe we can use PID_SWITCH_DEVICE_OFF here? However then it seems to not reboot automatically, so might not be able to easily reconnect afterwards...
                 final Parameter disconnect = Parameter.fromBytes(VsmConstants.PID_DISCONNECT_BLE_CONN, new byte[] {(byte) 0x00});
                 paramWriteRequest(disconnect);

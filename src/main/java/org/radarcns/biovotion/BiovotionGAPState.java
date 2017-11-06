@@ -179,6 +179,7 @@ public class BiovotionGAPState {
     }
 
     public int getGapStreamLag() {
+        updateGapStreamLag();
         return gapStreamLag;
     }
 
