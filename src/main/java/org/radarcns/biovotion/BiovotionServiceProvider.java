@@ -52,6 +52,11 @@ public class BiovotionServiceProvider extends DeviceServiceProvider<BiovotionDev
         return Arrays.asList(ACCESS_COARSE_LOCATION, BLUETOOTH, BLUETOOTH_ADMIN);
     }
 
+    @Override
+    public boolean isFilterable() {
+        return true;
+    }
+
     @NonNull
     @Override
     public String getDeviceProducer() {
