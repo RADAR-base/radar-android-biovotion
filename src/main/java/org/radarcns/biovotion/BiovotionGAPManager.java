@@ -149,6 +149,7 @@ public class BiovotionGAPManager {
     public void rawGapSuccessful() {
         getRawGap().setGapLastGet(getRawGap().recordsToGet());
         getRawGap().setGapLastIndex(getRawGap().nextIndex());
+        //getRawGap().setGapLastIndex(getRawGap().getGapCount()); // DEBUG: reset gapLastIndex
     }
 
 

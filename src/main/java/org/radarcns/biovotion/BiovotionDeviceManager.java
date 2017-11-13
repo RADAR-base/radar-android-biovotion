@@ -213,7 +213,9 @@ public class BiovotionDeviceManager
         super.close();
     }
 
-    public void disconnect() {
+    // Called when a device is disconnected. Does some housekeeping actions.
+    // Should not be called from multiple threads at the same time!
+    public synchronized void disconnect() {
         logger.info("Biovotion VSM disconnecting.");
         this.isConnected = false;
 
@@ -317,6 +319,7 @@ public class BiovotionDeviceManager
 
     @Override
     protected synchronized void updateStatus(DeviceStatusListener.Status status) {
+        if (status == getState().getStatus()) return;
         if (status == DeviceStatusListener.Status.DISCONNECTED) disconnect();
         super.updateStatus(status);
     }

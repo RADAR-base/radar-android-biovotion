@@ -143,9 +143,9 @@ public class BiovotionGAPState {
     public int getGapLastIndex() {
         if (getDeviceId() != null && gapLastIndex < 0) {
             SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.BIOVOTION_PREFS, Context.MODE_PRIVATE);
-            gapLastIndex = prefs.getInt(VsmConstants.GAP_LAST_INDEX+"_"+getDeviceId(), -1);
+            gapLastIndex = prefs.getInt(VsmConstants.GAP_LAST_INDEX+"_"+getDeviceId(), getGapCount());
         }
-        if (getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS))
+        if (VsmConstants.GAP_MAX_LOOKBACK_MS > 0 && getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS))
             gapLastIndex = getGapCount() - samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS);
         return gapLastIndex;
     }

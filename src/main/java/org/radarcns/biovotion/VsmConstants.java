@@ -79,7 +79,7 @@ public final class VsmConstants {
     public final static int PID_SWITCH_DEVICE_OFF                     = 0x2A; // W
     public final static int PID_TX_POWER                              = 0x2B; // RW
     public final static int PID_SET_FACTORY_DEFAULT                   = 0x2C; // W
-    public final static int PID_DISCONNECT_BLE_CONN                  = 0x2D; // W
+    public final static int PID_DISCONNECT_BLE_CONN                   = 0x2D; // W
     public final static int PID_SELF_TEST_RESULT                      = 0x2E; // R
     public final static int PID_CLEAR_WHITE_LIST                      = 0x30; // W
     public final static int PID_BOOTLOADER_VERSIOM                    = 0x31; // R
@@ -147,7 +147,7 @@ public final class VsmConstants {
      * GAP request miscellaneous
      */
     public final static int GAP_MAX_PAGES        = 50; // max number of pages to get with one request
-    public final static int GAP_MAX_LOOKBACK_MS  = 3600000; // max time to look back into past and get missing records
+    public final static int GAP_MAX_LOOKBACK_MS  = 0;//3600000; // max time to look back into past and get missing records (0: infinite)
     public final static int GAP_INTERVAL_MS      = 500; // try a new GAP request every x milliseconds
 
 
