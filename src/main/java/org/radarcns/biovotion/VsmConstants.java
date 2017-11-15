@@ -36,6 +36,9 @@ public final class VsmConstants {
     public static final String BIOVOTION_PREFS = "org.radarcns.biovotion";
     public static final String GAP_LAST_INDEX = "org.radarcns.biovotion.gapLastIndex";
 
+    // Reverse raw data before sending to kafka, because GAP gets in reverse-chronological order
+    public static final boolean VSM_REVERSE_RAW_DATA = false;
+
     /**
      * Default Bluetooth connection timeout. If this timeout is reached, the callback
      * VsmDeviceListener#onVsmDeviceConnectionError(VsmDevice, VsmConnectionState) is called.

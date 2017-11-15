@@ -674,17 +674,22 @@ public class BiovotionDeviceManager
                     BiovotionVsm1PpgRaw ppgValue = new BiovotionVsm1PpgRaw((double) unit.timestamp, timeReceived,
                             latestPPG[0], latestPPG[1], latestPPG[2], latestPPG[3]);
 
-                    // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTopic and start over
-                    // since acc and ppg raw data always arrive in the same unit, can just check for one and empty both
-                    if (gap_raw_stack_acc.peekFirst() != null && accValue.getTime() > gap_raw_stack_acc.peekFirst().getTime()) {
-                        logger.debug("Biovotion VSM Sending {} acc/ppg records", gap_raw_stack_acc.size());
-                        while (!gap_raw_stack_acc.isEmpty()) {
-                            send(accelerationTopic, gap_raw_stack_acc.removeFirst());
-                            send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
+                    if (!VsmConstants.VSM_REVERSE_RAW_DATA) {
+                        send(accelerationTopic, accValue);
+                        send(ppgRawTopic, ppgValue);
+                    } else {
+                        // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTable and start over
+                        // since acc and ppg raw data always arrive in the same unit, can just check for one and empty both
+                        if (gap_raw_stack_acc.peekFirst() != null && accValue.getTime() > gap_raw_stack_acc.peekFirst().getTime()) {
+                            logger.debug("Biovotion VSM Sending {} acc/ppg records", gap_raw_stack_acc.size());
+                            while (!gap_raw_stack_acc.isEmpty()) {
+                                send(accelerationTopic, gap_raw_stack_acc.removeFirst());
+                                send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
+                            }
                         }
+                        gap_raw_stack_acc.addFirst(accValue);
+                        gap_raw_stack_ppg.addFirst(ppgValue);
                     }
-                    gap_raw_stack_acc.addFirst(accValue);
-                    gap_raw_stack_ppg.addFirst(ppgValue);
 
                     gapManager.getRawGap().incGapSinceLast();
                 }
@@ -699,14 +704,18 @@ public class BiovotionDeviceManager
                 BiovotionVsm1LedCurrent ledValue = new BiovotionVsm1LedCurrent((double) unit.timestamp, timeReceived,
                     latestLedCurrent[0], latestLedCurrent[1], latestLedCurrent[2], latestLedCurrent[3]);
 
-                // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTopic and start over
-                if (gap_raw_stack_led_current.peekFirst() != null && ledValue.getTime() > gap_raw_stack_led_current.peekFirst().getTime()) {
-                    logger.debug("Biovotion VSM Sending {} led current records", gap_raw_stack_acc.size());
-                    while (!gap_raw_stack_led_current.isEmpty()) {
-                        send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
+                if (VsmConstants.VSM_REVERSE_RAW_DATA) {
+                    send(ledCurrentTopic, ledValue);
+                } else {
+                    // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTable and start over
+                    if (gap_raw_stack_led_current.peekFirst() != null && ledValue.getTime() > gap_raw_stack_led_current.peekFirst().getTime()) {
+                        logger.debug("Biovotion VSM Sending {} led current records", gap_raw_stack_acc.size());
+                        while (!gap_raw_stack_led_current.isEmpty()) {
+                            send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
+                        }
                     }
+                    gap_raw_stack_led_current.addFirst(ledValue);
                 }
-                gap_raw_stack_led_current.addFirst(ledValue);
 
                 break;
         }
