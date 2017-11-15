@@ -33,8 +33,8 @@ public final class VsmConstants {
     /**
      * sharedPreferences keys for storage of GAP request info
      */
-    public static final String BIOVOTION_PREFS = "org.radarcns.biovotion";
-    public static final String GAP_LAST_INDEX = "org.radarcns.biovotion.gapLastIndex";
+    public static final String VSM_PREFS = "org.radarcns.biovotion";
+    public static final String VSM_PREFS_GAP_LAST_INDEX = "org.radarcns.biovotion.gapLastIndex";
 
     // Reverse raw data before sending to kafka, because GAP gets in reverse-chronological order
     public static final boolean VSM_REVERSE_RAW_DATA = false;
@@ -55,7 +55,7 @@ public final class VsmConstants {
     /**
      * VSM sensor sampling rates
      */
-    public final static float VSM_VS_SAMPLE_RATE = 1f; // vital sign data sample rate, in Hz
+    public final static float VSM_VENDOR_SAMPLE_RATE = 1f; // vital sign data sample rate, in Hz
     public final static float VSM_RAW_SAMPLE_RATE = 51.2f; // raw data sample rate, in Hz
 
 

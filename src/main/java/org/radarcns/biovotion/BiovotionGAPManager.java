@@ -130,10 +130,11 @@ public class BiovotionGAPManager {
 
     public Parameter newRawGap() {
         if (getRawGap().requestViableCheck() && getRawGap().pageSizeCheck()) {
-            if (getRawGap().getGapSinceLast() != getRawGap().getGapLastGet())
-                logger.warn("Biovotion VSM GAP num samples since last request ({}) is not equal with num records to get ({})!", getRawGap().getGapSinceLast(), getRawGap().getGapLastGet());
+            // TODO: FIXME: sometimes the device seems to send a lot more data than was requested in the last GAP (-> SinceLast > LastRange), need to find out the cause (maybe firmware issue?) (-> duplicate data? unnecessary lag?)
+            if (getRawGap().getGapSinceLast() != getRawGap().getGapLastRange())
+                logger.warn("Biovotion VSM GAP num samples since last request ({}) is not equal with num records to get ({})!", getRawGap().getGapSinceLast(), getRawGap().getGapLastRange());
             getRawGap().setGapSinceLast(0);
-            setStatus(0); // manually override status to prevent immediate second GAP request
+            setStatus(0); // manually override status to prevent immediate second GAP request TODO: do this properly somehow
 
             int start_ix = getRawGap().nextIndex();
             int records_to_get = getRawGap().recordsToGet();
@@ -147,7 +148,7 @@ public class BiovotionGAPManager {
     }
 
     public void rawGapSuccessful() {
-        getRawGap().setGapLastGet(getRawGap().recordsToGet());
+        getRawGap().setGapLastRange(getRawGap().recordsToGet());
         getRawGap().setGapLastIndex(getRawGap().nextIndex());
         //getRawGap().setGapLastIndex(getRawGap().getGapCount()); // DEBUG: reset gapLastIndex
     }

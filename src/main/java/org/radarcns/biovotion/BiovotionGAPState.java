@@ -34,7 +34,7 @@ public class BiovotionGAPState {
     private int gapCount;         // current latest counter index
     private int gapNum;           // current total number of records in storage
     private int gapLastIndex;     // start index from last GAP request
-    private int gapLastGet;       // number of records requested from last GAP request
+    private int gapLastRange;     // number of records requested from last GAP request
     private int gapSinceLast;     // number of records streamed since last GAP request
     private int gapStreamLag;     // approximate number of records the streaming lags behind the device
 
@@ -47,7 +47,7 @@ public class BiovotionGAPState {
         this.gapResponse = 0;
         this.gapLastIndex = -1;
         this.gapSinceLast = 0;
-        this.gapLastGet = 0;
+        this.gapLastRange = 0;
         this.gapCount = -1;
         this.gapNum = -1;
 
@@ -64,7 +64,7 @@ public class BiovotionGAPState {
                 ", gapCount=" + gapCount +
                 ", gapNum=" + gapNum +
                 ", gapLastIndex=" + gapLastIndex +
-                ", gapLastGet=" + gapLastGet +
+                ", gapLastRange=" + gapLastRange +
                 ", gapSinceLast=" + gapSinceLast +
                 ", gapStreamLag=" + gapStreamLag +
                 '}';
@@ -92,7 +92,7 @@ public class BiovotionGAPState {
     }
 
     public void clearPrefs() {
-        SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.BIOVOTION_PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
         prefs.edit().clear().apply();
     }
 
@@ -142,8 +142,8 @@ public class BiovotionGAPState {
 
     public int getGapLastIndex() {
         if (getDeviceId() != null && gapLastIndex < 0) {
-            SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.BIOVOTION_PREFS, Context.MODE_PRIVATE);
-            gapLastIndex = prefs.getInt(VsmConstants.GAP_LAST_INDEX+"_"+getDeviceId(), getGapCount());
+            SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
+            gapLastIndex = prefs.getInt(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId(), getGapCount());
         }
         if (VsmConstants.GAP_MAX_LOOKBACK_MS > 0 && getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS))
             gapLastIndex = getGapCount() - samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS);
@@ -152,18 +152,18 @@ public class BiovotionGAPState {
 
     public void setGapLastIndex(int gapLastIndex) {
         if (getDeviceId() != null) {
-            SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.BIOVOTION_PREFS, Context.MODE_PRIVATE);
-            prefs.edit().putInt(VsmConstants.GAP_LAST_INDEX+"_"+getDeviceId(), gapLastIndex).apply();
+            SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
+            prefs.edit().putInt(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId(), gapLastIndex).apply();
         }
         this.gapLastIndex = gapLastIndex;
     }
 
-    public int getGapLastGet() {
-        return gapLastGet;
+    public int getGapLastRange() {
+        return gapLastRange;
     }
 
-    public void setGapLastGet(int gapLastGet) {
-        this.gapLastGet = gapLastGet;
+    public void setGapLastRange(int gapLastRange) {
+        this.gapLastRange = gapLastRange;
     }
 
     public int getGapSinceLast() {
