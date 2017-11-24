@@ -216,48 +216,55 @@ public class BiovotionDeviceManager
     // Called when a device is disconnected. Does some housekeeping actions.
     // Should not be called from multiple threads at the same time!
     public synchronized void disconnect() {
-        logger.info("Biovotion VSM disconnecting.");
+        logger.info("Biovotion VSM Manager disconnecting.");
         this.isConnected = false;
 
         // stop device/ble services
         if (vsmScanner != null && vsmScanner.isScanning()) {
             vsmScanner.stopScanning();
             vsmScanner = null;
+            logger.debug("Biovotion VSM disconnect: vsmScanner.");
         }
         if (vsmDevice != null) {
             if (vsmDevice.isConnected()) vsmDevice.disconnect();
             vsmDevice.removeListeners();
             vsmDevice = null;
+            logger.debug("Biovotion VSM disconnect: vsmDevice.");
         }
-        if (vsmBleService != null && vsmBleService.connectionState() == BleServiceObserver.ConnectionState.GATT_CONNECTED) {
+        if (vsmBleService != null){// && vsmBleService.connectionState() == BleServiceObserver.ConnectionState.GATT_CONNECTED) {
             vsmBleService.disconnect();
             if (bleServiceConnectionIsBound) {
                 getService().unbindService(bleServiceConnection);
                 bleServiceConnectionIsBound = false;
             }
             vsmBleService = null;
+            logger.debug("Biovotion VSM disconnect: vsmBleService.");
         }
 
         // remove controllers
         if (vsmStreamController != null) {
             vsmStreamController.removeListeners();
             vsmStreamController = null;
+            logger.debug("Biovotion VSM disconnect: vsmStreamController.");
         }
         if (vsmParameterController != null) {
             vsmParameterController.removeListeners();
             vsmParameterController = null;
+            logger.debug("Biovotion VSM disconnect: vsmParameterController.");
         }
 
         // empty remaining raw data stacks
         while (!gap_raw_stack_acc.isEmpty()) {
             send(accelerationTopic, gap_raw_stack_acc.removeFirst());
             send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
+            logger.debug("Biovotion VSM disconnect: empty acc raw stack.");
         }
         while (!gap_raw_stack_led_current.isEmpty()) {
             send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
+            logger.debug("Biovotion VSM disconnect: empty led current raw stack.");
         }
 
-        logger.info("Biovotion VSM disconnected.");
+        logger.info("Biovotion VSM Manager disconnected.");
     }
 
 
@@ -367,6 +374,7 @@ public class BiovotionDeviceManager
     @Override
     public void onVsmDeviceConnecting(@NonNull VsmDevice device) {
         logger.info("Biovotion VSM device connecting.");
+        setName(device.descriptor().name());
         updateStatus(DeviceStatusListener.Status.CONNECTING);
     }
 
@@ -417,7 +425,7 @@ public class BiovotionDeviceManager
         Map<String, String> attributes = new ArrayMap<>(2);
         attributes.put("name", descriptor.name());
         attributes.put("macAddress", descriptor.address());
-        attributes.put("sdk", "vsm-5.1.3-release.aar");
+        attributes.put("sdk", "vsm-5.2.0-release.aar");
         // register device now, start listening to the device after the registration is successful
         getService().registerDevice(descriptor.address(), descriptor.name(), attributes);
 
@@ -478,10 +486,10 @@ public class BiovotionDeviceManager
         // read device_mode parameter; if currently on charger, disconnect
         if (p.id() == VsmConstants.PID_DEVICE_MODE) {
             if (p.value()[0] == VsmConstants.MOD_ONCHARGER && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
-                logger.warn("Biovotion VSM device is currently on charger and not downloading missing data, disconnecting!");
-                // TODO: Maybe we can use PID_SWITCH_DEVICE_OFF here? However then it seems to not reboot automatically, so might not be able to easily reconnect afterwards...
-                final Parameter disconnect = Parameter.fromBytes(VsmConstants.PID_DISCONNECT_BLE_CONN, new byte[] {(byte) 0x00});
-                paramWriteRequest(disconnect);
+                logger.warn("Biovotion VSM device is currently on charger and not uploading local data, disconnecting!");
+                //final Parameter disconnect = Parameter.fromBytes(VsmConstants.PID_DISCONNECT_BLE_CONN, new byte[] {(byte) 0x01});
+                //paramWriteRequest(disconnect);
+                vsmDevice.disconnect(); // properly disconnects, internally also writes to parameter PID_DISCONNECT_BLE_CONN
             }
         }
 
@@ -546,7 +554,7 @@ public class BiovotionDeviceManager
         else if (p.id() == VsmConstants.PID_LAST_RAW_COUNTER_VALUE) {
             gapManager.getRawGap().setGapCount(p.valueAsInteger());
 
-            logger.debug("Biovotion VSM GAP status: {}", gapManager);
+            logger.info("Biovotion VSM GAP status: {}", gapManager);
 
             // GAP request here
             Parameter rawGapReq = gapManager.newRawGap();
@@ -583,8 +591,14 @@ public class BiovotionDeviceManager
      */
 
     @Override
+    public void onStreamMessageReceived(@NonNull final java.nio.ByteBuffer payload) {
+        logger.debug("Biovotion VSM Message received: {}", payload);
+        //TODO: find out what is sent here
+    }
+
+    @Override
     public void onStreamValueReceived(@NonNull final StreamValue unit) {
-        logger.debug("Biovotion VSM Data recieved: {}", unit.type);
+        logger.debug("Biovotion VSM Data received: {}", unit.type);
         double timeReceived = System.currentTimeMillis() / 1000d;
         BiovotionDeviceStatus deviceStatus = getState();
 
