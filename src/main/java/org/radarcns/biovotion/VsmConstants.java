@@ -151,7 +151,8 @@ public final class VsmConstants {
      */
     public final static int GAP_MAX_PAGES        = 50; // max number of pages to get with one request
     public final static int GAP_MAX_LOOKBACK_MS  = 0;//3600000; // max time to look back into past and get missing records (0: infinite)
-    public final static int GAP_INTERVAL_MS      = 500; // try a new GAP request every x milliseconds
+    public final static int GAP_INTERVAL_MS      = 1000; // try a new GAP request every x milliseconds
+    public final static int GAP_MAX_REQUEST_MS   = 120000; // maximum time for GAP request until disconnect is forced
 
 
     /**

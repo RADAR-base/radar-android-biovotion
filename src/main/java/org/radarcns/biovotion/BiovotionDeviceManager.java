@@ -365,7 +365,7 @@ public class BiovotionDeviceManager
         // check for GSR mode on
         paramReadRequest(VsmConstants.PID_GSR_ON);
 
-        gapManager.setDeviceId(getState().getId().getSourceId());
+        gapManager.setDeviceId(vsmDevice.descriptor().address());
 
         updateStatus(DeviceStatusListener.Status.CONNECTED);
         this.isConnected = true;
@@ -485,8 +485,9 @@ public class BiovotionDeviceManager
 
         // read device_mode parameter; if currently on charger, disconnect
         if (p.id() == VsmConstants.PID_DEVICE_MODE) {
-            if (p.value()[0] == VsmConstants.MOD_ONCHARGER && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
+            if (p.value()[0] == VsmConstants.MOD_ONCHARGER && gapManager.getRawGap().getGapStreamLag() >= 0 && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
                 logger.warn("Biovotion VSM device is currently on charger and not uploading local data, disconnecting!");
+                logger.warn("Biovotion VSM GAP status: {}", gapManager);
                 //final Parameter disconnect = Parameter.fromBytes(VsmConstants.PID_DISCONNECT_BLE_CONN, new byte[] {(byte) 0x01});
                 //paramWriteRequest(disconnect);
                 vsmDevice.disconnect(); // properly disconnects, internally also writes to parameter PID_DISCONNECT_BLE_CONN
@@ -534,9 +535,16 @@ public class BiovotionDeviceManager
             // abort if GAP already running
             if (gapManager.getStatus() == 0) {
                 logger.debug("Biovotion VSM GAP request running");
+                // HACK: check if last GAP request was longer than GAP_MAX_REQUEST_MS ago, disconnect
+                if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
+                    logger.error("Biovotion VSM GAP request running too long, disconnecting!");
+                    vsmDevice.disconnect();
+                }
+                return;
+            } else if (gapManager.getStatus() > 1) {
+                logger.warn("Biovotion VSM GAP request status abnormal: {}", gapManager.getStatus());
                 return;
             }
-            // TODO: handle GAP error statuses (gap_stat > 1)
 
             paramReadRequest(VsmConstants.PID_NUMBER_OF_RAW_DATA_SETS_IN_STORAGE);
         }
@@ -558,11 +566,11 @@ public class BiovotionDeviceManager
 
             // GAP request here
             Parameter rawGapReq = gapManager.newRawGap();
-            gapManager.getRawGap().setLastGapRequest(rawGapReq);
+            gapManager.getRawGap().setLastGapRequest(rawGapReq, System.currentTimeMillis());
             if (rawGapReq != null && !paramWriteRequest(rawGapReq)) {
                 logger.error("Biovotion VSM GAP raw request failed!");
             } else {
-                logger.debug("Biovotion VSM GAP raw request skipped");
+                logger.debug("Biovotion VSM GAP raw request created was null, skipping.");
             }
         }
     }

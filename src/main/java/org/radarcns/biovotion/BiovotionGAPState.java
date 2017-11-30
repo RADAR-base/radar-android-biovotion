@@ -39,6 +39,7 @@ public class BiovotionGAPState {
     private int gapStreamLag;     // approximate number of records the streaming lags behind the device
 
     private Parameter lastGapRequest; // parameter set of last sent GAP request
+    private long lastGapTime; // time of last sent GAP request
     private String deviceId;
     private Context context;
 
@@ -83,11 +84,22 @@ public class BiovotionGAPState {
     public int nextIndex() {
         return getGapLastIndex() + recordsToGet();
     }
+    public int minimumIndex() {
+        return getGapCount() - getGapNum();
+    }
+    public int maximumIndex() {
+        return getGapCount();
+    }
 
     public int recordsToGet() {
         int records_to_get = getGapCount() - getGapLastIndex();
+
         if (records_to_get > VsmConstants.GAP_MAX_PAGES * VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW)
             records_to_get = VsmConstants.GAP_MAX_PAGES * VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW;
+
+        if (records_to_get < VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW)
+            records_to_get = 0;
+
         return records_to_get;
     }
 
@@ -141,20 +153,42 @@ public class BiovotionGAPState {
     }
 
     public int getGapLastIndex() {
+        // reset from preferences if -1 (init)
         if (getDeviceId() != null && gapLastIndex < 0) {
             SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
-            gapLastIndex = prefs.getInt(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId(), getGapCount());
+            setGapLastIndex(prefs.getInt(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId(), getGapCount()));
+            logger.info("Biovotion VSM GAP lastIndex initialized to {}, from VSM prefs {}", gapLastIndex, VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId());
         }
-        if (VsmConstants.GAP_MAX_LOOKBACK_MS > 0 && getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS))
-            gapLastIndex = getGapCount() - samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS);
+
         return gapLastIndex;
     }
 
     public void setGapLastIndex(int gapLastIndex) {
+        // reset to max lookback if exceeded
+        if (VsmConstants.GAP_MAX_LOOKBACK_MS > 0 && getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS)) {
+            gapLastIndex = getGapCount() - samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS);
+            logger.warn("Biovotion VSM GAP lastIndex reset to {}, due to maximum lookback exceeded", gapLastIndex);
+        }
+
+        // reset to (minimum index + 2 max GAP range) if exceeded (+1 for next range and +1 for safety)
+        if (gapLastIndex < minimumIndex()) {
+            gapLastIndex = minimumIndex() + 2 * VsmConstants.GAP_MAX_PAGES * VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW;
+            logger.warn("Biovotion VSM GAP lastIndex reset to {}, due to minimum index ({}) exceeded", gapLastIndex, minimumIndex());
+        }
+
+        // reset to current GAP count if exceeded
+        if (gapLastIndex > maximumIndex()) {
+            gapLastIndex = maximumIndex();
+            logger.warn("Biovotion VSM GAP lastIndex reset to {}, due to maximum index ({}) exceeded", gapLastIndex, maximumIndex());
+        }
+
+        // also set in preferences
         if (getDeviceId() != null) {
             SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
             prefs.edit().putInt(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId(), gapLastIndex).apply();
+            logger.info("Biovotion VSM set GAP lastIndex to {}, in VSM prefs {}", gapLastIndex, VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId());
         }
+
         this.gapLastIndex = gapLastIndex;
     }
 
@@ -195,8 +229,9 @@ public class BiovotionGAPState {
         return lastGapRequest;
     }
 
-    public void setLastGapRequest(Parameter lastGapRequest) {
+    public void setLastGapRequest(Parameter lastGapRequest, long time) {
         this.lastGapRequest = lastGapRequest;
+        this.setLastGapTime(time);
     }
 
     public String getDeviceId() {
@@ -205,5 +240,13 @@ public class BiovotionGAPState {
 
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
+    }
+
+    public long getLastGapTime() {
+        return lastGapTime;
+    }
+
+    public void setLastGapTime(long lastGapTime) {
+        this.lastGapTime = lastGapTime;
     }
 }

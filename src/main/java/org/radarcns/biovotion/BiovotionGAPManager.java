@@ -139,6 +139,11 @@ public class BiovotionGAPManager {
             int start_ix = getRawGap().nextIndex();
             int records_to_get = getRawGap().recordsToGet();
 
+            if (records_to_get == 0 && getRawGap().getGapCount() != getRawGap().getGapLastIndex()) {
+                getRawGap().setGapLastIndex(getRawGap().getGapCount());
+                logger.warn("Biovotion VSM GAP lastIndex reset to maximum index {}, due to records_to_get abnormal 0", getRawGap().getGapCount());
+            }
+
             return buildGapRequest(VsmConstants.GAP_TYPE_VITAL_RAW, start_ix, records_to_get);
         } else if (getRawGap().requestViableCheck() && !getRawGap().pageSizeCheck()) {
             logger.warn("Biovotion VSM GAP pageSizeCheck:{} nextIndex():{} recordsToGet:{}", getRawGap().pageSizeCheck(), getRawGap().nextIndex(), getRawGap().recordsToGet());
