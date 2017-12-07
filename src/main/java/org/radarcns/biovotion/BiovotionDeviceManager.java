@@ -341,13 +341,14 @@ public class BiovotionDeviceManager
         if (!ready)
             return;
 
-        logger.info("Biovotion VSM device connected.");
+        logger.info("Biovotion VSM device {} connected.", device.descriptor().name());
 
+        vsmScanner.stopScanning();
         vsmDevice = device;
 
-        vsmStreamController = device.streamController();
+        vsmStreamController = vsmDevice.streamController();
         vsmStreamController.addListener(this);
-        vsmParameterController = device.parameterController();
+        vsmParameterController = vsmDevice.parameterController();
         vsmParameterController.addListener(this);
 
         // set UTC time
@@ -373,30 +374,34 @@ public class BiovotionDeviceManager
 
     @Override
     public void onVsmDeviceConnecting(@NonNull VsmDevice device) {
-        logger.info("Biovotion VSM device connecting.");
+        logger.info("Biovotion VSM device {} connecting.", device.descriptor().name());
         setName(device.descriptor().name());
         updateStatus(DeviceStatusListener.Status.CONNECTING);
     }
 
     @Override
     public void onVsmDeviceConnectionError(@NonNull VsmDevice device, VsmConnectionState errorState) {
-        logger.error("Biovotion VSM device connection error: {}", errorState.toString());
+        logger.error("Biovotion VSM device connection error for {}: {}", device.descriptor().name(), errorState.toString());
+        getService().deviceFailedToConnect(device.descriptor().name());
+        //vsmScanner.startScanning();
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
     }
 
     @Override
     public void onVsmDeviceDisconnected(@NonNull VsmDevice device, int statusCode) {
-        logger.warn("Biovotion VSM device disconnected. ({})", statusCode);
+        logger.warn("Biovotion VSM device {} disconnected. ({})", device.descriptor().name(), statusCode);
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
     }
 
     @Override
     public void onVsmDeviceReady(@NonNull VsmDevice device) {
-        logger.info("Biovotion VSM device ready, trying to connect.");
+        logger.info("Biovotion VSM device ready, trying to connect {}.", device.descriptor().name());
+
         try {
             device.connect(VsmConstants.BLE_CONN_TIMEOUT_MS);
         } catch (NullPointerException ex) {
             logger.error("Biovotion VSM connect failed: {}", ex);
+            getService().deviceFailedToConnect(device.descriptor().name());
             updateStatus(DeviceStatusListener.Status.DISCONNECTED);
         }
     }
@@ -408,28 +413,36 @@ public class BiovotionDeviceManager
 
     @Override
     public void onVsmDeviceFound(@NonNull Scanner scanner, @NonNull VsmDescriptor descriptor) {
-        logger.info("Biovotion VSM device found.");
-        vsmScanner.stopScanning();
+        logger.info("Biovotion VSM device {} found with ID: {}", descriptor.name(), descriptor.address());
+
+        Map<String, Long> deviceBlacklist = getService().getDeviceBlacklist();
+        if (deviceBlacklist.containsKey(descriptor.address())) {
+            if (System.currentTimeMillis() - deviceBlacklist.get(descriptor.address()) > VsmConstants.BLE_BLACKLIST_TIMEOUT_MS) {
+                getService().getDeviceBlacklist().remove(descriptor.address());
+            } else {
+                logger.warn("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", descriptor.address()
+                        , (VsmConstants.BLE_BLACKLIST_TIMEOUT_MS - System.currentTimeMillis() + deviceBlacklist.get(descriptor.address())) / 1000d);
+                logger.debug("Biovotion VSM device blacklist: {}", deviceBlacklist);
+                return;
+            }
+        }
 
         if (accepTopicIds.length > 0
                 && !Strings.findAny(accepTopicIds, descriptor.name())
                 && !Strings.findAny(accepTopicIds, descriptor.address())) {
             logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), descriptor.address());
-            getService().deviceFailedToConnect(descriptor.name());
             return;
         }
 
         vsmDescriptor = descriptor;
-        setName(descriptor.name());
+        setName(vsmDescriptor.name());
 
         Map<String, String> attributes = new ArrayMap<>(2);
-        attributes.put("name", descriptor.name());
-        attributes.put("macAddress", descriptor.address());
+        attributes.put("name", vsmDescriptor.name());
+        attributes.put("macAddress", vsmDescriptor.address());
         attributes.put("sdk", "vsm-5.2.0-release.aar");
         // register device now, start listening to the device after the registration is successful
-        getService().registerDevice(descriptor.address(), descriptor.name(), attributes);
-
-        logger.info("Biovotion VSM device Name: {} ID: {}", descriptor.name(), descriptor.address());
+        getService().registerDevice(vsmDescriptor.address(), vsmDescriptor.name(), attributes);
     }
 
     @Override
@@ -441,7 +454,7 @@ public class BiovotionDeviceManager
         vsmDevice = VsmDevice.sharedInstance();
         vsmDevice.setDescriptor(vsmDescriptor);
 
-        // Bind the shared BLE service
+        // Bind the shared BLE service. This actually starts the connection process.
         Intent gattServiceIntent = new Intent(getService(), BleService.class);
         bleServiceConnectionIsBound = getService().bindService(gattServiceIntent,
                 bleServiceConnection, Context.BIND_AUTO_CREATE);
@@ -485,11 +498,15 @@ public class BiovotionDeviceManager
 
         // read device_mode parameter; if currently on charger, disconnect
         if (p.id() == VsmConstants.PID_DEVICE_MODE) {
-            if (p.value()[0] == VsmConstants.MOD_ONCHARGER && gapManager.getRawGap().getGapStreamLag() >= 0 && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
+            if (p.value()[0] == VsmConstants.MOD_ONCHARGER
+                    && gapManager.getRawGap().getGapStreamLag() >= 0
+                    && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
                 logger.warn("Biovotion VSM device is currently on charger and not uploading local data, disconnecting!");
                 logger.warn("Biovotion VSM GAP status: {}", gapManager);
-                //final Parameter disconnect = Parameter.fromBytes(VsmConstants.PID_DISCONNECT_BLE_CONN, new byte[] {(byte) 0x01});
-                //paramWriteRequest(disconnect);
+
+                getService().getDeviceBlacklist().put(vsmDevice.descriptor().address(), System.currentTimeMillis());
+                logger.warn("Biovotion VSM device blacklist: {}", getService().getDeviceBlacklist());
+
                 vsmDevice.disconnect(); // properly disconnects, internally also writes to parameter PID_DISCONNECT_BLE_CONN
             }
         }
