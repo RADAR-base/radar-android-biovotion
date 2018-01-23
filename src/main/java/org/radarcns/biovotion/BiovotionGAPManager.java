@@ -33,6 +33,7 @@ public class BiovotionGAPManager {
 
     private String deviceId;
     private int gapStatus;
+    private boolean firstRawRequest;
     private final ByteBuffer gapRequestBuffer;
     private BiovotionGAPState rawGap;
 
@@ -75,6 +76,7 @@ public class BiovotionGAPManager {
     public BiovotionGAPManager(Context context) {
         this.gapRequestBuffer = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN);
         this.gapStatus = -1;
+        this.firstRawRequest = true;
         this.rawGap = new BiovotionGAPState(context);
         this.deviceId = null;
     }
@@ -123,6 +125,8 @@ public class BiovotionGAPManager {
                 .array();
         gapRequestBuffer.clear();
 
+        setFirstRawRequest(false);
+
         // send the request
         logger.info("Biovotion VSM GAP new request: type:{} start:{} range:{}", gap_type, gap_start, gap_range);
         return Parameter.fromBytes(VsmConstants.PID_GAP_RECORD_REQUEST, ba_gap_req_value);
@@ -162,5 +166,13 @@ public class BiovotionGAPManager {
     @Override
     public String toString() {
         return String.format(Locale.getDefault(), "Status: %d\nRAW: %s", getStatus(), getRawGap());
+    }
+
+    public boolean isFirstRawRequest() {
+        return firstRawRequest;
+    }
+
+    public void setFirstRawRequest(boolean firstRawRequest) {
+        this.firstRawRequest = firstRawRequest;
     }
 }

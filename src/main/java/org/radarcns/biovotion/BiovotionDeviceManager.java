@@ -17,6 +17,7 @@
 package org.radarcns.biovotion;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -45,6 +46,9 @@ import ch.hevs.biovotion.vsm.stream.StreamController;
 import ch.hevs.biovotion.vsm.stream.StreamListener;
 import ch.hevs.ble.lib.core.BleService;
 import ch.hevs.ble.lib.core.BleServiceObserver;
+import ch.hevs.ble.lib.events.commands.BleCommand;
+import ch.hevs.ble.lib.events.commands.CommandStatus;
+import ch.hevs.ble.lib.events.responses.BleGattResponse;
 import ch.hevs.ble.lib.exceptions.BleScanException;
 import ch.hevs.ble.lib.scanner.Scanner;
 import org.radarcns.android.auth.AppSource;
@@ -123,16 +127,48 @@ public class BiovotionDeviceManager
     private final ByteBuffer utcBuffer;
 
     // Code to manage Service lifecycle.
+    private final BleServiceObserver vsmBleServiceObserver = new BleServiceObserver() {
+        @Override
+        public void onGattResponse(@NonNull BluetoothDevice bluetoothDevice, @NonNull BleGattResponse bleGattResponse) {
+            //logger.debug("Biovotion VSM BLE service ({}) GATT response {}", bluetoothDevice, bleGattResponse);
+        }
+
+        @Override
+        public void onCommandError(BluetoothDevice bluetoothDevice, @NonNull BleCommand bleCommand, @NonNull CommandStatus commandStatus) {
+            logger.error("Biovotion VSM BLE service ({}) command error {}", bluetoothDevice, commandStatus);
+        }
+
+        @Override
+        public void onGattError(BluetoothDevice bluetoothDevice, @NonNull BleGattResponse bleGattResponse, int i) {
+            logger.error("Biovotion VSM BLE service ({}) GATT error {} {}", bluetoothDevice, i, bleGattResponse);
+        }
+
+        @Override
+        public void onConnectionError(BluetoothDevice bluetoothDevice, @NonNull ConnectionErrorState connectionErrorState) {
+            logger.error("Biovotion VSM BLE service ({}) connection error {}", bluetoothDevice, connectionErrorState);
+        }
+
+        @Override
+        public void onConnectionStateChanged(BluetoothDevice bluetoothDevice, @NonNull ConnectionState connectionState) {
+            logger.debug("Biovotion VSM BLE service ({}) connection state changed ({})", bluetoothDevice, connectionState);
+        }
+
+        @Override
+        public void onBondingStateChanged(@NonNull BluetoothDevice bluetoothDevice, @NonNull BondingState bondingState) {
+            logger.debug("Biovotion VSM BLE service ({}) bonding state changed ({})", bluetoothDevice, bondingState);
+        }
+    };
     private boolean bleServiceConnectionIsBound;
     private final ServiceConnection bleServiceConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             vsmBleService = ((BleService.LocalBinder) service).getService();
-            vsmBleService.setVerbose(false);
+            vsmBleService.setVerbose(true);
 
-            // The shared BLE service is now connected. Can be used by the watch.
+            // The shared BLE service is now connected.
             vsmDevice.setBleService(vsmBleService);
+            vsmBleService.registerObserver(vsmBleServiceObserver);
 
             logger.info("Biovotion VSM initialize BLE service");
             if (!vsmBleService.initialize(getService()))
@@ -154,6 +190,7 @@ public class BiovotionDeviceManager
             vsmBleService = null;
         }
     };
+
     private Pattern[] accepTopicIds;
 
 
@@ -413,14 +450,14 @@ public class BiovotionDeviceManager
 
     @Override
     public void onVsmDeviceFound(@NonNull Scanner scanner, @NonNull VsmDescriptor descriptor) {
-        logger.info("Biovotion VSM device {} found with ID: {}", descriptor.name(), descriptor.address());
+        logger.debug("Biovotion VSM device {} found with ID: {}", descriptor.name(), descriptor.address());
 
         Map<String, Long> deviceBlacklist = getService().getDeviceBlacklist();
         if (deviceBlacklist.containsKey(descriptor.address())) {
             if (System.currentTimeMillis() - deviceBlacklist.get(descriptor.address()) > VsmConstants.BLE_BLACKLIST_TIMEOUT_MS) {
                 getService().getDeviceBlacklist().remove(descriptor.address());
             } else {
-                logger.warn("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", descriptor.address()
+                logger.debug("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", descriptor.address()
                         , (VsmConstants.BLE_BLACKLIST_TIMEOUT_MS - System.currentTimeMillis() + deviceBlacklist.get(descriptor.address())) / 1000d);
                 logger.debug("Biovotion VSM device blacklist: {}", deviceBlacklist);
                 return;
@@ -549,18 +586,21 @@ public class BiovotionDeviceManager
 
             logger.debug("Biovotion VSM GAP status: {}", gapManager);
 
-            // abort if GAP already running
-            if (gapManager.getStatus() == 0) {
+            if (gapManager.isFirstRawRequest()) {
+                logger.info("Biovotion VSM GAP first request, ignoring status");
+            } else if (gapManager.getStatus() == 0) {
                 logger.debug("Biovotion VSM GAP request running");
                 // HACK: check if last GAP request was longer than GAP_MAX_REQUEST_MS ago, disconnect
-                if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
-                    logger.error("Biovotion VSM GAP request running too long, disconnecting!");
-                    vsmDevice.disconnect();
-                }
+//                logger.warn("Biovotion VSM GAP request running since: {}, now: {}, runtime: {}"
+//                        , gapManager.getRawGap().getLastGapTime(), System.currentTimeMillis(), (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime())/1000L);
+//                if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
+//                    logger.error("Biovotion VSM GAP request running too long, disconnecting!");
+//                    vsmDevice.disconnect();
+//                }
+                // abort if GAP already running
                 return;
             } else if (gapManager.getStatus() > 1) {
                 logger.warn("Biovotion VSM GAP request status abnormal: {}", gapManager.getStatus());
-                return;
             }
 
             paramReadRequest(VsmConstants.PID_NUMBER_OF_RAW_DATA_SETS_IN_STORAGE);
