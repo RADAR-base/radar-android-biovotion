@@ -3,9 +3,9 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.0'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
+        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.0'
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.0'
     }
 }
 
@@ -14,14 +14,14 @@ apply plugin: 'com.jfrog.bintray'
 apply plugin: 'com.github.dcendents.android-maven'
 
 android {
-    compileSdkVersion 25
-    buildToolsVersion "26.0.1"
+    compileSdkVersion 27
+    buildToolsVersion "27.0.2"
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 25
-        versionCode 4
-        versionName '0.3-SNAPSHOT'
+        targetSdkVersion 27
+        versionCode 5
+        versionName '0.4-SNAPSHOT'
     }
     buildTypes {
         release {
@@ -29,9 +29,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
             libraryVariants.all { variant ->
-                variant.outputs.each { output ->
+                variant.outputs.all { output ->
                     if (output.outputFile != null && output.outputFile.name.endsWith('.aar')) {
-                        output.outputFile = new File(output.outputFile.parent,
+                        outputFileName = new File(output.outputFile.parent,
                                 "${archivesBaseName}-${android.defaultConfig.versionName}.aar")
                     }
                 }
@@ -71,22 +71,27 @@ configurations.compile {
 
 repositories {
     jcenter()
+    google()
     maven { url 'https://oss.jfrog.org/artifactory/oss-snapshot-local' }
+    maven { url 'https://jitpack.io' }
     flatDir { dirs 'libs' }
 }
 
 dependencies {
     // VSM library - abstraction API
-    compile 'ch.hevs.biovotion.vsm:vsm:5.2.0:release@aar'
+    implementation 'ch.hevs.biovotion.vsm:vsm:5.2.0:release@aar'
 
     // Generic BLE library
-    compile 'ch.hevs.ble.lib:hevs-ble-library:0.8.1:release@aar'
+    implementation 'ch.hevs.ble.lib:hevs-ble-library:0.8.1:release@aar'
 
-    compile 'org.radarcns:radar-commons-android:0.3'
-    compile 'org.radarcns:radar-schemas-commons:0.2'
+    runtimeOnly 'com.squareup.okhttp:okhttp:2.5.0'
+    api 'org.radarcns:radar-commons-android:0.6'
+    implementation 'org.radarcns:radar-schemas-commons:0.2.3'
 
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.slf4j:slf4j-simple:1.7.25'
+    api 'com.android.support:support-v4:27.0.2'
+
+    testImplementation 'junit:junit:4.12'
+    testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.25'
 }
 
 //---------------------------------------------------------------------------//
