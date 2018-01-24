@@ -591,12 +591,12 @@ public class BiovotionDeviceManager
             } else if (gapManager.getStatus() == 0) {
                 logger.debug("Biovotion VSM GAP request running");
                 // HACK: check if last GAP request was longer than GAP_MAX_REQUEST_MS ago, disconnect
-//                logger.warn("Biovotion VSM GAP request running since: {}, now: {}, runtime: {}"
-//                        , gapManager.getRawGap().getLastGapTime(), System.currentTimeMillis(), (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime())/1000L);
-//                if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
-//                    logger.error("Biovotion VSM GAP request running too long, disconnecting!");
-//                    vsmDevice.disconnect();
-//                }
+                logger.warn("Biovotion VSM GAP request running since: {}, now: {}, runtime: {}"
+                        , gapManager.getRawGap().getLastGapTime(), System.currentTimeMillis(), (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime())/1000L);
+                if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
+                    logger.error("Biovotion VSM GAP request running too long, disconnecting!");
+                    vsmDevice.disconnect();
+                }
                 // abort if GAP already running
                 return;
             } else if (gapManager.getStatus() > 1) {
