@@ -427,6 +427,9 @@ public class BiovotionDeviceManager
     @Override
     public void onVsmDeviceDisconnected(@NonNull VsmDevice device, int statusCode) {
         logger.warn("Biovotion VSM device {} disconnected. ({})", device.descriptor().name(), statusCode);
+        if (statusCode != 0) {
+            getService().getDeviceBlacklist().put(device.descriptor().address(), System.currentTimeMillis());
+        }
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
     }
 
@@ -459,7 +462,7 @@ public class BiovotionDeviceManager
             } else {
                 logger.debug("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", descriptor.address()
                         , (VsmConstants.BLE_BLACKLIST_TIMEOUT_MS - System.currentTimeMillis() + deviceBlacklist.get(descriptor.address())) / 1000d);
-                logger.debug("Biovotion VSM device blacklist: {}", deviceBlacklist);
+                logger.trace("Biovotion VSM device blacklist: {}", deviceBlacklist);
                 return;
             }
         }
@@ -468,6 +471,7 @@ public class BiovotionDeviceManager
                 && !Strings.findAny(accepTopicIds, descriptor.name())
                 && !Strings.findAny(accepTopicIds, descriptor.address())) {
             logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), descriptor.address());
+            getService().getDeviceBlacklist().put(descriptor.address(), System.currentTimeMillis());
             return;
         }
 
@@ -496,7 +500,9 @@ public class BiovotionDeviceManager
         bleServiceConnectionIsBound = getService().bindService(gattServiceIntent,
                 bleServiceConnection, Context.BIND_AUTO_CREATE);
 
-        vsmDevice.addListener(this);
+        if (this != null) {
+            vsmDevice.addListener(this);
+        }
     }
 
     @Override
