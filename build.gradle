@@ -85,8 +85,9 @@ dependencies {
     implementation 'ch.hevs.ble.lib:hevs-ble-library:0.8.1:release@aar'
 
     runtimeOnly 'com.squareup.okhttp:okhttp:2.5.0'
-    api 'org.radarcns:radar-commons-android:0.6'
-    implementation 'org.radarcns:radar-schemas-commons:0.2.3'
+    //api 'org.radarcns:radar-commons-android:0.6'
+    //implementation 'org.radarcns:radar-schemas-commons:0.2.3'
+    api project(':commons-android')
 
     api 'com.android.support:support-v4:27.0.2'
 
