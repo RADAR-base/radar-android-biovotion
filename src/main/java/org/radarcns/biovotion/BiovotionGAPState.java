@@ -51,6 +51,7 @@ public class BiovotionGAPState {
         this.gapLastRange = 0;
         this.gapCount = -1;
         this.gapNum = -1;
+        this.gapStreamLag = 0;
 
         this.lastGapRequest = null;
         this.deviceId = null;
@@ -220,7 +221,7 @@ public class BiovotionGAPState {
     }
 
     public void setGapStreamLag(int gapStreamLag) {
-        this.gapStreamLag = gapStreamLag;
+        this.gapStreamLag = (gapStreamLag < 0) ? 0 : gapStreamLag;
     }
 
     public void updateGapStreamLag() {
