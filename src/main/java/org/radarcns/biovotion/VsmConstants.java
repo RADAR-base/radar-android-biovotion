@@ -51,7 +51,7 @@ public final class VsmConstants {
      */
     public final static int BLE_CONN_TIMEOUT_MS = 10000;
 
-    public final static int BLE_BLACKLIST_TIMEOUT_MS = 120000; // maximum time for device to remain in BLE connection blacklist
+    public final static int BLE_BLACKLIST_TIMEOUT_MS = 10000; // maximum time for device to remain in BLE connection blacklist
 
 
     /**
