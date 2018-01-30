@@ -663,13 +663,13 @@ public class BiovotionDeviceManager
 
     @Override
     public void onStreamMessageReceived(@NonNull final java.nio.ByteBuffer payload) {
-        logger.debug("Biovotion VSM Message received: {}", payload);
+        logger.trace("Biovotion VSM Message received: {}", payload);
         //TODO: find out what is sent here
     }
 
     @Override
     public void onStreamValueReceived(@NonNull final StreamValue unit) {
-        logger.debug("Biovotion VSM Data received: {}", unit.type);
+        logger.trace("Biovotion VSM Data received: {}", unit.type);
         double timeReceived = System.currentTimeMillis() / 1000d;
         BiovotionDeviceStatus deviceStatus = getState();
 
