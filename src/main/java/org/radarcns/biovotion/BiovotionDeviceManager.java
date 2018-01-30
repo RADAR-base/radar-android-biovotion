@@ -597,7 +597,7 @@ public class BiovotionDeviceManager
             } else if (gapManager.getStatus() == 0) {
                 logger.debug("Biovotion VSM GAP request running");
                 // HACK: check if last GAP request was longer than GAP_MAX_REQUEST_MS ago, disconnect
-                logger.warn("Biovotion VSM GAP request running since: {}, now: {}, runtime: {}"
+                logger.trace("Biovotion VSM GAP request running since: {}, now: {}, runtime: {}"
                         , gapManager.getRawGap().getLastGapTime(), System.currentTimeMillis(), (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime())/1000L);
                 if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
                     logger.error("Biovotion VSM GAP request running too long, disconnecting!");
@@ -789,7 +789,7 @@ public class BiovotionDeviceManager
                 BiovotionVsm1LedCurrent ledValue = new BiovotionVsm1LedCurrent((double) unit.timestamp, timeReceived,
                     latestLedCurrent[0], latestLedCurrent[1], latestLedCurrent[2], latestLedCurrent[3]);
 
-                if (VsmConstants.VSM_REVERSE_RAW_DATA) {
+                if (!VsmConstants.VSM_REVERSE_RAW_DATA) {
                     send(ledCurrentTopic, ledValue);
                 } else {
                     // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTable and start over

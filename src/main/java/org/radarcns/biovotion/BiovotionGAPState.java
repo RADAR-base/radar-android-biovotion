@@ -164,6 +164,8 @@ public class BiovotionGAPState {
     }
 
     public void setGapLastIndex(int gapLastIndex) {
+        logger.debug("Biovotion VSM GAP lastIndex setting to {}", gapLastIndex);
+
         // reset to max lookback if exceeded
         if (VsmConstants.GAP_MAX_LOOKBACK_MS > 0 && getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS)) {
             gapLastIndex = getGapCount() - samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS);
@@ -177,7 +179,7 @@ public class BiovotionGAPState {
         }
 
         // reset to current GAP count if exceeded
-        if (gapLastIndex > maximumIndex()) {
+        if (maximumIndex() > -1 && gapLastIndex > maximumIndex()) {
             gapLastIndex = maximumIndex();
             logger.warn("Biovotion VSM GAP lastIndex reset to {}, due to maximum index ({}) exceeded", gapLastIndex, maximumIndex());
         }
