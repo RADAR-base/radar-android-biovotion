@@ -304,6 +304,29 @@ public class BiovotionDeviceManager
         logger.info("Biovotion VSM Manager disconnected.");
     }
 
+    // Check if the device is on the blacklist. Remove if timeout condition is met.
+    public boolean isBlacklisted(String address) {
+        Map<String, Long> deviceBlacklist = getService().getDeviceBlacklist();
+        if (deviceBlacklist.containsKey(address)) {
+            if (System.currentTimeMillis() - deviceBlacklist.get(address) > VsmConstants.BLE_BLACKLIST_TIMEOUT_MS) {
+                getService().getDeviceBlacklist().remove(address);
+                return false;
+            } else {
+                logger.debug("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", address
+                        , (VsmConstants.BLE_BLACKLIST_TIMEOUT_MS - System.currentTimeMillis() + deviceBlacklist.get(address)) / 1000d);
+                logger.trace("Biovotion VSM device blacklist: {}", deviceBlacklist);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void updateBlacklist(String address) {
+        getService().getDeviceBlacklist().put(address, System.currentTimeMillis());
+        logger.debug("Biovotion VSM Device with ID {} was put on the blacklist.", address);
+        logger.trace("Biovotion VSM device blacklist: {}", getService().getDeviceBlacklist());
+    }
+
 
     /*
      * DeviceManager interface
@@ -428,7 +451,7 @@ public class BiovotionDeviceManager
     public void onVsmDeviceDisconnected(@NonNull VsmDevice device, int statusCode) {
         logger.warn("Biovotion VSM device {} disconnected. ({})", device.descriptor().name(), statusCode);
         if (statusCode != 0) {
-            getService().getDeviceBlacklist().put(device.descriptor().address(), System.currentTimeMillis());
+            updateBlacklist(device.descriptor().address());
         }
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
     }
@@ -436,6 +459,8 @@ public class BiovotionDeviceManager
     @Override
     public void onVsmDeviceReady(@NonNull VsmDevice device) {
         logger.info("Biovotion VSM device ready, trying to connect {}.", device.descriptor().name());
+
+        if (isBlacklisted(device.descriptor().address())) return;
 
         try {
             device.connect(VsmConstants.BLE_CONN_TIMEOUT_MS);
@@ -455,23 +480,13 @@ public class BiovotionDeviceManager
     public void onVsmDeviceFound(@NonNull Scanner scanner, @NonNull VsmDescriptor descriptor) {
         logger.debug("Biovotion VSM device {} found with ID: {}", descriptor.name(), descriptor.address());
 
-        Map<String, Long> deviceBlacklist = getService().getDeviceBlacklist();
-        if (deviceBlacklist.containsKey(descriptor.address())) {
-            if (System.currentTimeMillis() - deviceBlacklist.get(descriptor.address()) > VsmConstants.BLE_BLACKLIST_TIMEOUT_MS) {
-                getService().getDeviceBlacklist().remove(descriptor.address());
-            } else {
-                logger.debug("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", descriptor.address()
-                        , (VsmConstants.BLE_BLACKLIST_TIMEOUT_MS - System.currentTimeMillis() + deviceBlacklist.get(descriptor.address())) / 1000d);
-                logger.trace("Biovotion VSM device blacklist: {}", deviceBlacklist);
-                return;
-            }
-        }
+        if (isBlacklisted(descriptor.address())) return;
 
         if (accepTopicIds.length > 0
                 && !Strings.findAny(accepTopicIds, descriptor.name())
                 && !Strings.findAny(accepTopicIds, descriptor.address())) {
             logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), descriptor.address());
-            getService().getDeviceBlacklist().put(descriptor.address(), System.currentTimeMillis());
+            updateBlacklist(descriptor.address());
             return;
         }
 
@@ -547,8 +562,7 @@ public class BiovotionDeviceManager
                 logger.warn("Biovotion VSM device is currently on charger and not uploading local data, disconnecting!");
                 logger.warn("Biovotion VSM GAP status: {}", gapManager);
 
-                getService().getDeviceBlacklist().put(vsmDevice.descriptor().address(), System.currentTimeMillis());
-                logger.warn("Biovotion VSM device blacklist: {}", getService().getDeviceBlacklist());
+                updateBlacklist(vsmDevice.descriptor().address());
 
                 vsmDevice.disconnect(); // properly disconnects, internally also writes to parameter PID_DISCONNECT_BLE_CONN
             }
