@@ -404,6 +404,7 @@ public class BiovotionDeviceManager
         logger.info("Biovotion VSM device {} connected.", device.descriptor().name());
 
         vsmScanner.stopScanning();
+        vsmScanner = null;
         vsmDevice = device;
 
         vsmStreamController = vsmDevice.streamController();
@@ -416,6 +417,14 @@ public class BiovotionDeviceManager
         final Parameter time = Parameter.fromBytes(VsmConstants.PID_UTC, time_bytes);
         paramWriteRequest(time);
         utcBuffer.clear();
+
+        // read device info
+        paramReadRequest(VsmConstants.PID_FIRMWARE_M4_VERSION);
+        paramReadRequest(VsmConstants.PID_FIRMWARE_AS7000_VERSION);
+        paramReadRequest(VsmConstants.PID_HW_VERSION);
+        paramReadRequest(VsmConstants.PID_FIRMWARE_BLE_VERSION);
+        paramReadRequest(VsmConstants.PID_INTERFACE_VERSION);
+        paramReadRequest(VsmConstants.PID_UNIQUE_DEVICE_ID);
 
         // check for device state
         paramReadRequest(VsmConstants.PID_DEVICE_MODE);
@@ -559,6 +568,17 @@ public class BiovotionDeviceManager
             if (p.value()[0] == VsmConstants.MOD_ONCHARGER
                     && gapManager.getRawGap().getGapStreamLag() >= 0
                     && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
+                // If GAPs not initialized, check again in 1 second.
+                if (gapManager.getRawGap().getGapCount() < 0) {
+                    executor.schedule(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    paramReadRequest(VsmConstants.PID_DEVICE_MODE);
+                                }
+                            }, 1000L, TimeUnit.MILLISECONDS);
+                    return;
+                }
                 logger.warn("Biovotion VSM device is currently on charger and not uploading local data, disconnecting!");
                 logger.warn("Biovotion VSM GAP status: {}", gapManager);
 
@@ -650,6 +670,33 @@ public class BiovotionDeviceManager
                 logger.debug("Biovotion VSM GAP raw request created was null, skipping.");
             }
         }
+
+
+        // read device and version info, other parameters
+        else {
+            switch (p.id()) {
+                case VsmConstants.PID_INTERFACE_VERSION:
+                    logger.info("PID_INTERFACE_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_FIRMWARE_M4_VERSION:
+                    logger.info("PID_FIRMWARE_M4_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_FIRMWARE_AS7000_VERSION:
+                    logger.info("PID_FIRMWARE_AS7000_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_HW_VERSION:
+                    logger.info("PID_HW_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_FIRMWARE_BLE_VERSION:
+                    logger.info("PID_FIRMWARE_BLE_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_UNIQUE_DEVICE_ID:
+                    logger.info("PID_UNIQUE_DEVICE_ID: {}", p.valueAsString());
+                    break;
+                default:
+                    logger.info("{}", p);
+            }
+        }
     }
 
     @Override
@@ -659,11 +706,13 @@ public class BiovotionDeviceManager
 
 
     public boolean paramReadRequest(int id) {
+        logger.trace("Biovotion VSM parameter read request. id:{}", id);
         boolean success = vsmParameterController.readRequest(id);
         if (!success) logger.error("Biovotion VSM parameter read request error. id:{}", id);
         return success;
     }
     public boolean paramWriteRequest(Parameter param) {
+        logger.trace("Biovotion VSM parameter write request. parameter:{}", param);
         boolean success = vsmParameterController.writeRequest(param);
         if (!success) logger.error("Biovotion VSM parameter write request error. parameter:{}", param);
         return success;

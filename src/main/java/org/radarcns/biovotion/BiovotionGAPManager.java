@@ -125,7 +125,7 @@ public class BiovotionGAPManager {
                 .array();
         gapRequestBuffer.clear();
 
-        setFirstRawRequest(false);
+        if (isFirstRawRequest()) setFirstRawRequest(false);
 
         // send the request
         logger.info("Biovotion VSM GAP new request: type:{} start:{} range:{}", gap_type, gap_start, gap_range);
