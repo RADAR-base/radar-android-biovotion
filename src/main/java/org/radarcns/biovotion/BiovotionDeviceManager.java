@@ -563,11 +563,12 @@ public class BiovotionDeviceManager
     public void onParameterRead(@NonNull final ParameterController ctrl, @NonNull Parameter p) {
         logger.debug("Biovotion VSM Parameter read: {}", p);
 
-        // read device_mode parameter; if currently on charger, disconnect
+        // read device_mode parameter; if currently on charger and not downloading GAPs, disconnect
         if (p.id() == VsmConstants.PID_DEVICE_MODE) {
-            if (p.value()[0] == VsmConstants.MOD_ONCHARGER
-                    && gapManager.getRawGap().getGapStreamLag() >= 0
-                    && gapManager.getRawGap().getGapStreamLag() < VsmConstants.GAP_MAX_PAGES*VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW) {
+            if (p.value()[0] == VsmConstants.MOD_ONCHARGER // on charger
+                    && gapManager.getRawGap().getGapStreamLag() == 0 // no lag
+                    && gapManager.getRawGap().getGapSinceLast() == gapManager.getRawGap().getGapLastRange()) // not receiving
+            {
                 // If GAPs not initialized, check again in 1 second.
                 if (gapManager.getRawGap().getGapCount() < 0) {
                     executor.schedule(
@@ -746,7 +747,7 @@ public class BiovotionDeviceManager
                 BiovotionVsm1BatteryLevel value = new BiovotionVsm1BatteryLevel((double) unit.timestamp, timeReceived,
                         latestBattery[0], latestBattery[1], latestBattery[2], latestBattery[3]);
 
-                trySend(batteryTopic, 0L, value);
+                send(batteryTopic, value);
                 break;
 
             case Algo1:
