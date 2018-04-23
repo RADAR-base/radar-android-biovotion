@@ -17,6 +17,7 @@
 package org.radarcns.biovotion;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -45,6 +46,9 @@ import ch.hevs.biovotion.vsm.stream.StreamController;
 import ch.hevs.biovotion.vsm.stream.StreamListener;
 import ch.hevs.ble.lib.core.BleService;
 import ch.hevs.ble.lib.core.BleServiceObserver;
+import ch.hevs.ble.lib.events.commands.BleCommand;
+import ch.hevs.ble.lib.events.commands.CommandStatus;
+import ch.hevs.ble.lib.events.responses.BleGattResponse;
 import ch.hevs.ble.lib.exceptions.BleScanException;
 import ch.hevs.ble.lib.scanner.Scanner;
 import org.radarcns.android.auth.AppSource;
@@ -113,14 +117,7 @@ public class BiovotionDeviceManager
     private final ScheduledExecutorService executor;
 
     private ScheduledFuture<?> gapFuture;
-    private final ByteBuffer gapRequestBuffer;
-    private int gap_raw_last_cnt = -1;      // latest counter index from last GAP request
-    private int gap_raw_last_idx = -1;      // start index from last GAP request
-    private int gap_raw_since_last = 0;     // number of records streamed since last GAP request
-    private int gap_raw_to_get = 0;         // number of records requested from last GAP request
-    private int gap_raw_cnt = -1;           // current latest counter index
-    private int gap_raw_num = -1;           // current total number of records in storage
-    private int gap_stat = -1;              // current GAP status
+    private BiovotionGAPManager gapManager;
 
     private Deque<BiovotionVsm1Acceleration> gap_raw_stack_acc;
     private Deque<BiovotionVsm1PpgRaw> gap_raw_stack_ppg;
@@ -130,16 +127,48 @@ public class BiovotionDeviceManager
     private final ByteBuffer utcBuffer;
 
     // Code to manage Service lifecycle.
+    private final BleServiceObserver vsmBleServiceObserver = new BleServiceObserver() {
+        @Override
+        public void onGattResponse(@NonNull BluetoothDevice bluetoothDevice, @NonNull BleGattResponse bleGattResponse) {
+            //logger.debug("Biovotion VSM BLE service ({}) GATT response {}", bluetoothDevice, bleGattResponse);
+        }
+
+        @Override
+        public void onCommandError(BluetoothDevice bluetoothDevice, @NonNull BleCommand bleCommand, @NonNull CommandStatus commandStatus) {
+            logger.error("Biovotion VSM BLE service ({}) command error {}", bluetoothDevice, commandStatus);
+        }
+
+        @Override
+        public void onGattError(BluetoothDevice bluetoothDevice, @NonNull BleGattResponse bleGattResponse, int i) {
+            logger.error("Biovotion VSM BLE service ({}) GATT error {} {}", bluetoothDevice, i, bleGattResponse);
+        }
+
+        @Override
+        public void onConnectionError(BluetoothDevice bluetoothDevice, @NonNull ConnectionErrorState connectionErrorState) {
+            logger.error("Biovotion VSM BLE service ({}) connection error {}", bluetoothDevice, connectionErrorState);
+        }
+
+        @Override
+        public void onConnectionStateChanged(BluetoothDevice bluetoothDevice, @NonNull ConnectionState connectionState) {
+            logger.debug("Biovotion VSM BLE service ({}) connection state changed ({})", bluetoothDevice, connectionState);
+        }
+
+        @Override
+        public void onBondingStateChanged(@NonNull BluetoothDevice bluetoothDevice, @NonNull BondingState bondingState) {
+            logger.debug("Biovotion VSM BLE service ({}) bonding state changed ({})", bluetoothDevice, bondingState);
+        }
+    };
     private boolean bleServiceConnectionIsBound;
     private final ServiceConnection bleServiceConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             vsmBleService = ((BleService.LocalBinder) service).getService();
-            vsmBleService.setVerbose(false);
+            vsmBleService.setVerbose(true);
 
-            // The shared BLE service is now connected. Can be used by the watch.
+            // The shared BLE service is now connected.
             vsmDevice.setBleService(vsmBleService);
+            vsmBleService.registerObserver(vsmBleServiceObserver);
 
             logger.info("Biovotion VSM initialize BLE service");
             if (!vsmBleService.initialize(getService()))
@@ -161,6 +190,7 @@ public class BiovotionDeviceManager
             vsmBleService = null;
         }
     };
+
     private Pattern[] accepTopicIds;
 
 
@@ -196,11 +226,12 @@ public class BiovotionDeviceManager
 
         this.executor = Executors.newSingleThreadScheduledExecutor();
 
+        this.gapManager = new BiovotionGAPManager(getService());
+
         this.gap_raw_stack_acc = new ArrayDeque<>(1024);
         this.gap_raw_stack_ppg = new ArrayDeque<>(1024);
         this.gap_raw_stack_led_current = new ArrayDeque<>(1024);
 
-        this.gapRequestBuffer = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN);
         this.utcBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
 
         synchronized (this) {
@@ -219,49 +250,81 @@ public class BiovotionDeviceManager
         super.close();
     }
 
-    public void disconnect() {
-        logger.info("Biovotion VSM disconnecting.");
+    // Called when a device is disconnected. Does some housekeeping actions.
+    // Should not be called from multiple threads at the same time!
+    public synchronized void disconnect() {
+        logger.info("Biovotion VSM Manager disconnecting.");
         this.isConnected = false;
 
         // stop device/ble services
         if (vsmScanner != null && vsmScanner.isScanning()) {
             vsmScanner.stopScanning();
             vsmScanner = null;
+            logger.debug("Biovotion VSM disconnect: vsmScanner.");
         }
         if (vsmDevice != null) {
             if (vsmDevice.isConnected()) vsmDevice.disconnect();
             vsmDevice.removeListeners();
             vsmDevice = null;
+            logger.debug("Biovotion VSM disconnect: vsmDevice.");
         }
-        if (vsmBleService != null && vsmBleService.connectionState() == BleServiceObserver.ConnectionState.GATT_CONNECTED) {
+        if (vsmBleService != null){// && vsmBleService.connectionState() == BleServiceObserver.ConnectionState.GATT_CONNECTED) {
             vsmBleService.disconnect();
             if (bleServiceConnectionIsBound) {
                 getService().unbindService(bleServiceConnection);
                 bleServiceConnectionIsBound = false;
             }
             vsmBleService = null;
+            logger.debug("Biovotion VSM disconnect: vsmBleService.");
         }
 
         // remove controllers
         if (vsmStreamController != null) {
             vsmStreamController.removeListeners();
             vsmStreamController = null;
+            logger.debug("Biovotion VSM disconnect: vsmStreamController.");
         }
         if (vsmParameterController != null) {
             vsmParameterController.removeListeners();
             vsmParameterController = null;
+            logger.debug("Biovotion VSM disconnect: vsmParameterController.");
         }
 
         // empty remaining raw data stacks
         while (!gap_raw_stack_acc.isEmpty()) {
             send(accelerationTopic, gap_raw_stack_acc.removeFirst());
             send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
+            logger.debug("Biovotion VSM disconnect: empty acc raw stack.");
         }
         while (!gap_raw_stack_led_current.isEmpty()) {
             send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
+            logger.debug("Biovotion VSM disconnect: empty led current raw stack.");
         }
 
-        logger.info("Biovotion VSM disconnected.");
+        logger.info("Biovotion VSM Manager disconnected.");
+    }
+
+    // Check if the device is on the blacklist. Remove if timeout condition is met.
+    public boolean isBlacklisted(String address) {
+        Map<String, Long> deviceBlacklist = getService().getDeviceBlacklist();
+        if (deviceBlacklist.containsKey(address)) {
+            if (System.currentTimeMillis() - deviceBlacklist.get(address) > VsmConstants.BLE_BLACKLIST_TIMEOUT_MS) {
+                getService().getDeviceBlacklist().remove(address);
+                return false;
+            } else {
+                logger.debug("Biovotion VSM Device with ID {} is on the blacklist for a remaining {}s.", address
+                        , (VsmConstants.BLE_BLACKLIST_TIMEOUT_MS - System.currentTimeMillis() + deviceBlacklist.get(address)) / 1000d);
+                logger.trace("Biovotion VSM device blacklist: {}", deviceBlacklist);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void updateBlacklist(String address) {
+        getService().getDeviceBlacklist().put(address, System.currentTimeMillis());
+        logger.debug("Biovotion VSM Device with ID {} was put on the blacklist.", address);
+        logger.trace("Biovotion VSM device blacklist: {}", getService().getDeviceBlacklist());
     }
 
 
@@ -323,6 +386,7 @@ public class BiovotionDeviceManager
 
     @Override
     protected synchronized void updateStatus(DeviceStatusListener.Status status) {
+        if (status == getState().getStatus()) return;
         if (status == DeviceStatusListener.Status.DISCONNECTED) disconnect();
         super.updateStatus(status);
     }
@@ -337,13 +401,15 @@ public class BiovotionDeviceManager
         if (!ready)
             return;
 
-        logger.info("Biovotion VSM device connected.");
+        logger.info("Biovotion VSM device {} connected.", device.descriptor().name());
 
+        vsmScanner.stopScanning();
+        vsmScanner = null;
         vsmDevice = device;
 
-        vsmStreamController = device.streamController();
+        vsmStreamController = vsmDevice.streamController();
         vsmStreamController.addListener(this);
-        vsmParameterController = device.parameterController();
+        vsmParameterController = vsmDevice.parameterController();
         vsmParameterController.addListener(this);
 
         // set UTC time
@@ -351,6 +417,14 @@ public class BiovotionDeviceManager
         final Parameter time = Parameter.fromBytes(VsmConstants.PID_UTC, time_bytes);
         paramWriteRequest(time);
         utcBuffer.clear();
+
+        // read device info
+        paramReadRequest(VsmConstants.PID_FIRMWARE_M4_VERSION);
+        paramReadRequest(VsmConstants.PID_FIRMWARE_AS7000_VERSION);
+        paramReadRequest(VsmConstants.PID_HW_VERSION);
+        paramReadRequest(VsmConstants.PID_FIRMWARE_BLE_VERSION);
+        paramReadRequest(VsmConstants.PID_INTERFACE_VERSION);
+        paramReadRequest(VsmConstants.PID_UNIQUE_DEVICE_ID);
 
         // check for device state
         paramReadRequest(VsmConstants.PID_DEVICE_MODE);
@@ -361,35 +435,47 @@ public class BiovotionDeviceManager
         // check for GSR mode on
         paramReadRequest(VsmConstants.PID_GSR_ON);
 
+        gapManager.setDeviceId(vsmDevice.descriptor().address());
+
         updateStatus(DeviceStatusListener.Status.CONNECTED);
         this.isConnected = true;
     }
 
     @Override
     public void onVsmDeviceConnecting(@NonNull VsmDevice device) {
-        logger.info("Biovotion VSM device connecting.");
+        logger.info("Biovotion VSM device {} connecting.", device.descriptor().name());
+        setName(device.descriptor().name());
         updateStatus(DeviceStatusListener.Status.CONNECTING);
     }
 
     @Override
     public void onVsmDeviceConnectionError(@NonNull VsmDevice device, VsmConnectionState errorState) {
-        logger.error("Biovotion VSM device connection error: {}", errorState.toString());
+        logger.error("Biovotion VSM device connection error for {}: {}", device.descriptor().name(), errorState.toString());
+        getService().deviceFailedToConnect(device.descriptor().name());
+        //vsmScanner.startScanning();
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
     }
 
     @Override
     public void onVsmDeviceDisconnected(@NonNull VsmDevice device, int statusCode) {
-        logger.warn("Biovotion VSM device disconnected. ({})", statusCode);
+        logger.warn("Biovotion VSM device {} disconnected. ({})", device.descriptor().name(), statusCode);
+        if (statusCode != 0) {
+            updateBlacklist(device.descriptor().address());
+        }
         updateStatus(DeviceStatusListener.Status.DISCONNECTED);
     }
 
     @Override
     public void onVsmDeviceReady(@NonNull VsmDevice device) {
-        logger.info("Biovotion VSM device ready, trying to connect.");
+        logger.info("Biovotion VSM device ready, trying to connect {}.", device.descriptor().name());
+
+        if (isBlacklisted(device.descriptor().address())) return;
+
         try {
             device.connect(VsmConstants.BLE_CONN_TIMEOUT_MS);
         } catch (NullPointerException ex) {
             logger.error("Biovotion VSM connect failed: {}", ex);
+            getService().deviceFailedToConnect(device.descriptor().name());
             updateStatus(DeviceStatusListener.Status.DISCONNECTED);
         }
     }
@@ -401,28 +487,27 @@ public class BiovotionDeviceManager
 
     @Override
     public void onVsmDeviceFound(@NonNull Scanner scanner, @NonNull VsmDescriptor descriptor) {
-        logger.info("Biovotion VSM device found.");
-        vsmScanner.stopScanning();
+        logger.debug("Biovotion VSM device {} found with ID: {}", descriptor.name(), descriptor.address());
+
+        if (isBlacklisted(descriptor.address())) return;
 
         if (accepTopicIds.length > 0
                 && !Strings.findAny(accepTopicIds, descriptor.name())
                 && !Strings.findAny(accepTopicIds, descriptor.address())) {
             logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), descriptor.address());
-            getService().deviceFailedToConnect(descriptor.name());
+            updateBlacklist(descriptor.address());
             return;
         }
 
         vsmDescriptor = descriptor;
-        setName(descriptor.name());
+        setName(vsmDescriptor.name());
 
         Map<String, String> attributes = new ArrayMap<>(2);
-        attributes.put("name", descriptor.name());
-        attributes.put("macAddress", descriptor.address());
-        attributes.put("sdk", "vsm-5.1.3-release.aar");
+        attributes.put("name", vsmDescriptor.name());
+        attributes.put("macAddress", vsmDescriptor.address());
+        attributes.put("sdk", "vsm-5.2.0-release.aar");
         // register device now, start listening to the device after the registration is successful
-        getService().registerDevice(descriptor.address(), descriptor.name(), attributes);
-
-        logger.info("Biovotion VSM device Name: {} ID: {}", descriptor.name(), descriptor.address());
+        getService().registerDevice(vsmDescriptor.address(), vsmDescriptor.name(), attributes);
     }
 
     @Override
@@ -434,12 +519,14 @@ public class BiovotionDeviceManager
         vsmDevice = VsmDevice.sharedInstance();
         vsmDevice.setDescriptor(vsmDescriptor);
 
-        // Bind the shared BLE service
+        // Bind the shared BLE service. This actually starts the connection process.
         Intent gattServiceIntent = new Intent(getService(), BleService.class);
         bleServiceConnectionIsBound = getService().bindService(gattServiceIntent,
                 bleServiceConnection, Context.BIND_AUTO_CREATE);
 
-        vsmDevice.addListener(this);
+        if (this != null) {
+            vsmDevice.addListener(this);
+        }
     }
 
     @Override
@@ -461,24 +548,44 @@ public class BiovotionDeviceManager
         logger.debug("Biovotion VSM Parameter written: {}", id);
 
         if (id == VsmConstants.PID_UTC) paramReadRequest(VsmConstants.PID_UTC);
+        else if (id == VsmConstants.PID_GAP_RECORD_REQUEST) gapManager.rawGapSuccessful();
+        // else if (id == VsmConstants.PID_GAP_RECORD_REQUEST) gapManager.getRawGap().setGapResponse(?); TODO: set GAP response, currently not implemeted by Biovotion?
     }
 
     @Override
     public void onParameterWriteError(@NonNull final ParameterController ctrl, int id, final int errorCode) {
         logger.error("Biovotion VSM Parameter write error, id={}, error={}", id, errorCode);
+
+        if (id == VsmConstants.PID_GAP_RECORD_REQUEST) gapManager.setStatus(1); // reset manual override status after GAP error
     }
 
     @Override
     public void onParameterRead(@NonNull final ParameterController ctrl, @NonNull Parameter p) {
         logger.debug("Biovotion VSM Parameter read: {}", p);
 
-        // read device_mode parameter; if currently on charger, disconnect
+        // read device_mode parameter; if currently on charger and not downloading GAPs, disconnect
         if (p.id() == VsmConstants.PID_DEVICE_MODE) {
-            if (p.value()[0] == VsmConstants.MOD_ONCHARGER) {
-                logger.warn("Biovotion VSM device is currently on charger, disconnecting!");
-                // TODO: Maybe we can use PID_SWITCH_DEVICE_OFF here? However then it seems to not reboot automatically, so might not be able to easily reconnect afterwards...
-                final Parameter disconnect = Parameter.fromBytes(VsmConstants.PID_DISCONNECT_BLE_CONN, new byte[] {(byte) 0x00});
-                paramWriteRequest(disconnect);
+            if (p.value()[0] == VsmConstants.MOD_ONCHARGER // on charger
+                    && gapManager.getRawGap().getGapStreamLag() == 0 // no lag
+                    && gapManager.getRawGap().getGapSinceLast() == gapManager.getRawGap().getGapLastRange()) // not receiving
+            {
+                // If GAPs not initialized, check again in 1 second.
+                if (gapManager.getRawGap().getGapCount() < 0) {
+                    executor.schedule(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    paramReadRequest(VsmConstants.PID_DEVICE_MODE);
+                                }
+                            }, 1000L, TimeUnit.MILLISECONDS);
+                    return;
+                }
+                logger.warn("Biovotion VSM device is currently on charger and not uploading local data, disconnecting!");
+                logger.warn("Biovotion VSM GAP status: {}", gapManager);
+
+                updateBlacklist(vsmDevice.descriptor().address());
+
+                vsmDevice.disconnect(); // properly disconnects, internally also writes to parameter PID_DISCONNECT_BLE_CONN
             }
         }
 
@@ -509,105 +616,88 @@ public class BiovotionDeviceManager
             //Boast.makeText(context, "Biovotion device UTC: " + p.valueAsInteger(), Toast.LENGTH_LONG).show();
         }
 
-        /**
-         * GAP request chain: gap status -> num data -> latest counter -> calculate gap -> gap request
-         *
-         * GAP requests will trigger streaming of data saved on the device, either raw data (which is never automatically streamed),
-         * or algo data (which was not streamed due to missing connection).
-         *
-         * A GAP request will need the following parameters:
-         * - gap_type: the type of data to be streamed
-         * - gap_start: the counter value from where to begin streaming
-         * - gap_range: the range, i.e. number of samples to be streamed
-         *
-         * Data is saved internally in a RingBuffer like structure, with two public values as an interface:
-         * - number of data in the buffer (NUMBER_OF_[]_SETS_IN_STORAGE)
-         * - latest counter value (LAST_[]_COUNTER_VALUE)
-         * The first will max out once the storage limit is reached, and new values will overwrite old ones in a FIFO behaviour.
-         * The second will keep incrementing when new samples are recorded into storage. (4 Byte unsigned int, overflow after ~2.66 years @ 51.2 Hz)
-         *
-         * The newest data sample has the id (counter value) LAST_[]_COUNTER_VALUE, the oldest has the id 0
-         * A GAP request will accordingly stream 'backwards' w.r.t. sample id's and time:
-         * Suppose gap_start = 999 and gap_range = 1000, the oldest 1000 samples will be streamed, in reverse-chronological order. (caveat see below 'pages')
-         *
-         * In the case of this application, the most recent raw data is requested at a fixed rate, in the following fashion:
-         * - the current GAP status is queried, if a GAP request is running (=0) the new request is aborted
-         * - the number of records and latest counter value are queried
-         * - the new starting index is the latest counter value
-         * - the range of values to request is calculated via the difference of the current latest counter and the latest counter at time of the last GAP request
-         * - a new GAP request is issued with the calculated values, and the current latest counter value is saved
-         *
-         * Pages:
-         * The data on the device is stored in pages of a specific number of samples (e.g. 17 in case of raw data). When getting data via GAP request,
-         * data will always be streamed in whole pages, i.e. if the start or end point of a GAP request is in the middle of a page, that whole page will
-         * still be streamed. This may result in more data being streamed than was requested.
-         *
+
+        /*
+         * RAW GAP REQUEST
          */
 
         // read GAP request status
         else if (p.id() == VsmConstants.PID_GAP_REQUEST_STATUS) {
-            gap_stat = p.value()[0];
-            if (gap_stat == 0) {
-                logger.debug("Biovotion VSM GAP request running");
-                return;
-            }
-            // TODO: handle GAP error statuses (gap_stat > 1)
+            gapManager.setStatus(p.value()[0]);
 
-            logger.debug("Biovotion VSM GAP status: raw_cnt:{} | raw_num:{} | gap_stat:{}", gap_raw_cnt, gap_raw_num, gap_stat);
+            logger.debug("Biovotion VSM GAP status: {}", gapManager);
+
+            if (gapManager.isFirstRawRequest()) {
+                logger.info("Biovotion VSM GAP first request, ignoring status");
+            } else if (gapManager.getStatus() == 0) {
+                logger.debug("Biovotion VSM GAP request running");
+                // HACK: check if last GAP request was longer than GAP_MAX_REQUEST_MS ago, disconnect
+                logger.trace("Biovotion VSM GAP request running since: {}, now: {}, runtime: {}"
+                        , gapManager.getRawGap().getLastGapTime(), System.currentTimeMillis(), (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime())/1000L);
+                if (System.currentTimeMillis() - gapManager.getRawGap().getLastGapTime() > VsmConstants.GAP_MAX_REQUEST_MS) {
+                    logger.error("Biovotion VSM GAP request running too long, disconnecting!");
+                    vsmDevice.disconnect();
+                }
+                // abort if GAP already running
+                return;
+            } else if (gapManager.getStatus() > 1) {
+                logger.warn("Biovotion VSM GAP request status abnormal: {}", gapManager.getStatus());
+            }
 
             paramReadRequest(VsmConstants.PID_NUMBER_OF_RAW_DATA_SETS_IN_STORAGE);
         }
 
         // read number of raw data sets currently in device storage
         else if (p.id() == VsmConstants.PID_NUMBER_OF_RAW_DATA_SETS_IN_STORAGE) {
-            gap_raw_num = p.valueAsInteger();
-            logger.debug("Biovotion VSM GAP status: raw_cnt:{} | raw_num:{} | gap_stat:{}", gap_raw_cnt, gap_raw_num, gap_stat);
+            gapManager.getRawGap().setGapNum(p.valueAsInteger());
+
+            logger.debug("Biovotion VSM GAP status: {}", gapManager);
 
             paramReadRequest(VsmConstants.PID_LAST_RAW_COUNTER_VALUE);
         }
 
         // read current latest record counter id. may initiate GAP request here
         else if (p.id() == VsmConstants.PID_LAST_RAW_COUNTER_VALUE) {
-            gap_raw_cnt = p.valueAsInteger();
-            if (gap_raw_last_cnt < 0) gap_raw_last_cnt = gap_raw_cnt; // init
+            gapManager.getRawGap().setGapCount(p.valueAsInteger());
 
-            int new_idx = gap_raw_cnt;
-
-            // set the number of records to request at this point
-            //int records_to_get = VsmConstants.GAP_NUM_PAGES * VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW;
-            int records_to_get = gap_raw_cnt - gap_raw_last_cnt;
-
-            logger.debug("Biovotion VSM GAP status: raw_cnt:{}:{} | raw_toget:{}:{} | gap_stat:{}", gap_raw_cnt, gap_raw_last_cnt, records_to_get, gap_raw_to_get, gap_stat);
+            logger.info("Biovotion VSM GAP status: {}", gapManager);
 
             // GAP request here
-            if (gap_stat != 0 && gap_raw_cnt > 0 && gap_raw_num > 0
-                    && records_to_get > 0
-                    && (gap_raw_num - records_to_get) > 0 // cant request more records than are stored on the device
-                    && (new_idx+1) % VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW == 0 // dont make a request if the index is not a multiple of the page size, to avoid getting more records than were requested
-                    && records_to_get % VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW == 0) // dont make a request if the number of records to get is not a multiple of the page size, to avoid getting more records than were requested
-            {
-                if (gap_raw_since_last != gap_raw_to_get)
-                    logger.warn("Biovotion VSM GAP num samples since last request ({}) is not equal with num records to get ({})!", gap_raw_since_last, gap_raw_to_get);
-
-                if (!gapRequest(VsmConstants.GAP_TYPE_VITAL_RAW, new_idx, records_to_get)) {
-                    logger.error("Biovotion VSM GAP request failed!");
-                } else {
-                    gap_raw_since_last = 0;
-                    gap_raw_last_idx = new_idx;
-                    gap_raw_last_cnt = gap_raw_cnt;
-                    gap_raw_to_get = records_to_get;
-                    paramReadRequest(VsmConstants.PID_GAP_REQUEST_STATUS);
-                }
-            }
-            else if (gap_stat != 0 && gap_raw_cnt > 0 && gap_raw_num > 0
-                    && records_to_get > 0
-                    && (gap_raw_num - records_to_get) > 0
-                    && ((new_idx+1) % VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW != 0 || records_to_get % VsmConstants.GAP_MAX_PER_PAGE_VITAL_RAW != 0))
-            {
-                paramReadRequest(VsmConstants.PID_LAST_RAW_COUNTER_VALUE); // immediately try again if aborted due to page size checks
+            Parameter rawGapReq = gapManager.newRawGap();
+            gapManager.getRawGap().setLastGapRequest(rawGapReq, System.currentTimeMillis());
+            if (rawGapReq != null && !paramWriteRequest(rawGapReq)) {
+                logger.error("Biovotion VSM GAP raw request failed!");
+            } else {
+                logger.debug("Biovotion VSM GAP raw request created was null, skipping.");
             }
         }
 
+
+        // read device and version info, other parameters
+        else {
+            switch (p.id()) {
+                case VsmConstants.PID_INTERFACE_VERSION:
+                    logger.info("PID_INTERFACE_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_FIRMWARE_M4_VERSION:
+                    logger.info("PID_FIRMWARE_M4_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_FIRMWARE_AS7000_VERSION:
+                    logger.info("PID_FIRMWARE_AS7000_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_HW_VERSION:
+                    logger.info("PID_HW_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_FIRMWARE_BLE_VERSION:
+                    logger.info("PID_FIRMWARE_BLE_VERSION: {}", p.valueAsString());
+                    break;
+                case VsmConstants.PID_UNIQUE_DEVICE_ID:
+                    logger.info("PID_UNIQUE_DEVICE_ID: {}", p.valueAsString());
+                    break;
+                default:
+                    logger.info("{}", p);
+            }
+        }
     }
 
     @Override
@@ -616,37 +706,14 @@ public class BiovotionDeviceManager
     }
 
 
-    /**
-     * make a new GAP request
-     * @param gap_type data type of GAP request
-     * @param gap_start counter value from where to begin (backwards, e.g. last counter)
-     * @param gap_range number of records to get
-     * @return write request success
-     */
-    public boolean gapRequest(int gap_type, int gap_start, int gap_range) {
-        if (gap_start <= 0 || gap_range <= 0 || gap_range > gap_start+1) return false;
-
-        // build the complete request value byte array
-        byte[] ba_gap_req_value = gapRequestBuffer
-                .put((byte) gap_type)
-                .putInt(gap_start)
-                .putInt(gap_range)
-                .array();
-        gapRequestBuffer.clear();
-
-        // send the request
-        logger.debug("Biovotion VSM GAP new request: type:{} start:{} range:{}", gap_type, gap_start, gap_range);
-        final Parameter gap_req = Parameter.fromBytes(VsmConstants.PID_GAP_RECORD_REQUEST, ba_gap_req_value);
-        return paramWriteRequest(gap_req);
-    }
-
-
     public boolean paramReadRequest(int id) {
+        logger.trace("Biovotion VSM parameter read request. id:{}", id);
         boolean success = vsmParameterController.readRequest(id);
         if (!success) logger.error("Biovotion VSM parameter read request error. id:{}", id);
         return success;
     }
     public boolean paramWriteRequest(Parameter param) {
+        logger.trace("Biovotion VSM parameter write request. parameter:{}", param);
         boolean success = vsmParameterController.writeRequest(param);
         if (!success) logger.error("Biovotion VSM parameter write request error. parameter:{}", param);
         return success;
@@ -659,8 +726,14 @@ public class BiovotionDeviceManager
      */
 
     @Override
+    public void onStreamMessageReceived(@NonNull final java.nio.ByteBuffer payload) {
+        logger.trace("Biovotion VSM Message received: {}", payload);
+        //TODO: find out what is sent here
+    }
+
+    @Override
     public void onStreamValueReceived(@NonNull final StreamValue unit) {
-        logger.debug("Biovotion VSM Data recieved: {}", unit.type);
+        logger.trace("Biovotion VSM Data received: {}", unit.type);
         double timeReceived = System.currentTimeMillis() / 1000d;
         BiovotionDeviceStatus deviceStatus = getState();
 
@@ -674,7 +747,7 @@ public class BiovotionDeviceManager
                 BiovotionVsm1BatteryLevel value = new BiovotionVsm1BatteryLevel((double) unit.timestamp, timeReceived,
                         latestBattery[0], latestBattery[1], latestBattery[2], latestBattery[3]);
 
-                trySend(batteryTopic, 0L, value);
+                send(batteryTopic, value);
                 break;
 
             case Algo1:
@@ -750,19 +823,24 @@ public class BiovotionDeviceManager
                     BiovotionVsm1PpgRaw ppgValue = new BiovotionVsm1PpgRaw((double) unit.timestamp, timeReceived,
                             latestPPG[0], latestPPG[1], latestPPG[2], latestPPG[3]);
 
-                    // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTopic and start over
-                    // since acc and ppg raw data always arrive in the same unit, can just check for one and empty both
-                    if (gap_raw_stack_acc.peekFirst() != null && accValue.getTime() > gap_raw_stack_acc.peekFirst().getTime()) {
-                        logger.debug("Biovotion VSM Sending {} acc/ppg records", gap_raw_stack_acc.size());
-                        while (!gap_raw_stack_acc.isEmpty()) {
-                            send(accelerationTopic, gap_raw_stack_acc.removeFirst());
-                            send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
+                    if (!VsmConstants.VSM_REVERSE_RAW_DATA) {
+                        send(accelerationTopic, accValue);
+                        send(ppgRawTopic, ppgValue);
+                    } else {
+                        // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into accelerationTable and start over
+                        // since acc and ppg raw data always arrive in the same unit, can just check for one and empty both
+                        if (gap_raw_stack_acc.peekFirst() != null && accValue.getTime() > gap_raw_stack_acc.peekFirst().getTime()) {
+                            logger.debug("Biovotion VSM Sending {} acc/ppg records", gap_raw_stack_acc.size());
+                            while (!gap_raw_stack_acc.isEmpty()) {
+                                send(accelerationTopic, gap_raw_stack_acc.removeFirst());
+                                send(ppgRawTopic, gap_raw_stack_ppg.removeFirst());
+                            }
                         }
+                        gap_raw_stack_acc.addFirst(accValue);
+                        gap_raw_stack_ppg.addFirst(ppgValue);
                     }
-                    gap_raw_stack_acc.addFirst(accValue);
-                    gap_raw_stack_ppg.addFirst(ppgValue);
 
-                    gap_raw_since_last++;
+                    gapManager.getRawGap().incGapSinceLast();
                 }
                 break;
 
@@ -775,14 +853,18 @@ public class BiovotionDeviceManager
                 BiovotionVsm1LedCurrent ledValue = new BiovotionVsm1LedCurrent((double) unit.timestamp, timeReceived,
                     latestLedCurrent[0], latestLedCurrent[1], latestLedCurrent[2], latestLedCurrent[3]);
 
-                // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTopic and start over
-                if (gap_raw_stack_led_current.peekFirst() != null && ledValue.getTime() > gap_raw_stack_led_current.peekFirst().getTime()) {
-                    logger.debug("Biovotion VSM Sending {} led current records", gap_raw_stack_acc.size());
-                    while (!gap_raw_stack_led_current.isEmpty()) {
-                        send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
+                if (!VsmConstants.VSM_REVERSE_RAW_DATA) {
+                    send(ledCurrentTopic, ledValue);
+                } else {
+                    // add measurements to a stack as long as new measurements are older. if a newer measurement is added, empty the stack into ledCurrentTable and start over
+                    if (gap_raw_stack_led_current.peekFirst() != null && ledValue.getTime() > gap_raw_stack_led_current.peekFirst().getTime()) {
+                        logger.debug("Biovotion VSM Sending {} led current records", gap_raw_stack_acc.size());
+                        while (!gap_raw_stack_led_current.isEmpty()) {
+                            send(ledCurrentTopic, gap_raw_stack_led_current.removeFirst());
+                        }
                     }
+                    gap_raw_stack_led_current.addFirst(ledValue);
                 }
-                gap_raw_stack_led_current.addFirst(ledValue);
 
                 break;
         }

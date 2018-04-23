@@ -24,7 +24,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A service that manages a BiovotionDeviceManager and a TableDataHandler to send store the data of a
@@ -32,6 +35,7 @@ import java.util.List;
  */
 public class BiovotionService extends DeviceService<BiovotionDeviceStatus> {
     private static final Logger logger = LoggerFactory.getLogger(BiovotionService.class);
+    private Map<String, Long> deviceBlacklist = Collections.synchronizedMap(new HashMap<String, Long>());
 
     @Override
     protected BiovotionDeviceManager createDeviceManager() {
@@ -41,5 +45,13 @@ public class BiovotionService extends DeviceService<BiovotionDeviceStatus> {
     @Override
     protected BiovotionDeviceStatus getDefaultState() {
         return new BiovotionDeviceStatus();
+    }
+
+    public Map<String, Long> getDeviceBlacklist() {
+        return deviceBlacklist;
+    }
+
+    public void setDeviceBlacklist(Map<String, Long> deviceBlacklist) {
+        this.deviceBlacklist = deviceBlacklist;
     }
 }
