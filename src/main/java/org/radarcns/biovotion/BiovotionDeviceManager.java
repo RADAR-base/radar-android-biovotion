@@ -106,6 +106,7 @@ public class BiovotionDeviceManager
     private final AvroTopic<ObservationKey, BiovotionVsm1BatteryLevel> batteryTopic;
 
     private boolean isConnected;
+    private boolean isConnecting;
 
     private VsmDevice vsmDevice;
     private StreamController vsmStreamController;
@@ -235,6 +236,7 @@ public class BiovotionDeviceManager
         this.utcBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
 
         synchronized (this) {
+            this.isConnecting = false;
             this.isConnected = false;
         }
     }
@@ -254,6 +256,7 @@ public class BiovotionDeviceManager
     // Should not be called from multiple threads at the same time!
     public synchronized void disconnect() {
         logger.info("Biovotion VSM Manager disconnecting.");
+        this.isConnecting = false;
         this.isConnected = false;
 
         // stop device/ble services
@@ -438,6 +441,7 @@ public class BiovotionDeviceManager
         gapManager.setDeviceId(vsmDevice.descriptor().address());
 
         updateStatus(DeviceStatusListener.Status.CONNECTED);
+        this.isConnecting = false;
         this.isConnected = true;
     }
 
@@ -493,11 +497,15 @@ public class BiovotionDeviceManager
 
         if (accepTopicIds.length > 0
                 && !Strings.findAny(accepTopicIds, descriptor.name())
-                && !Strings.findAny(accepTopicIds, descriptor.address())) {
+                && !Strings.findAny(accepTopicIds, descriptor.address())
+                && !Strings.findAny(accepTopicIds, descriptor.address().replace(":",""))) {
             logger.info("Biovotion VSM Device {} with ID {} is not listed in acceptable device IDs", descriptor.name(), descriptor.address());
             updateBlacklist(descriptor.address());
             return;
         }
+
+        if (this.isConnecting || this.isConnected) return;
+        this.isConnecting = true;
 
         vsmDescriptor = descriptor;
         setName(vsmDescriptor.name());
