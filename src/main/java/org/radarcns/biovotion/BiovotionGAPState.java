@@ -104,9 +104,24 @@ public class BiovotionGAPState {
         return records_to_get;
     }
 
-    public void clearPrefs() {
+    public void clearAllPrefs() {
         SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
         prefs.edit().clear().apply();
+    }
+    public void clearPrefs(String key) {
+        SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
+        prefs.edit().remove(key).apply();
+    }
+    public void thisClearPrefs() {
+        clearPrefs(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId());
+    }
+
+    public boolean hasPrefs(String key) {
+        SharedPreferences prefs = this.context.getSharedPreferences(VsmConstants.VSM_PREFS, Context.MODE_PRIVATE);
+        return prefs.contains(key);
+    }
+    public boolean thisHasPrefs() {
+        return hasPrefs(VsmConstants.VSM_PREFS_GAP_LAST_INDEX+"_"+getDeviceId());
     }
 
     public int samples_from_ms(int ms) {
@@ -166,6 +181,12 @@ public class BiovotionGAPState {
 
     public void setGapLastIndex(int gapLastIndex) {
         logger.debug("Biovotion VSM GAP lastIndex setting to {}", gapLastIndex);
+
+        // do not set if invalid
+        if (gapLastIndex < 0) {
+            logger.debug("Biovotion VSM GAP lastIndex skipped setting invalid value ({})", gapLastIndex);
+            return;
+        }
 
         // reset to max lookback if exceeded
         if (VsmConstants.GAP_MAX_LOOKBACK_MS > 0 && getGapCount() - gapLastIndex > samples_from_ms(VsmConstants.GAP_MAX_LOOKBACK_MS)) {

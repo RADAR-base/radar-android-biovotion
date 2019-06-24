@@ -22,6 +22,7 @@ import android.widget.Toast;
 import org.radarcns.android.device.DeviceServiceConnection;
 import org.radarcns.android.util.Boast;
 import org.radarcns.data.Record;
+import org.radarcns.data.RecordData;
 import org.radarcns.kafka.ObservationKey;
 import org.radarcns.passive.biovotion.BiovotionVsm1HeartRate;
 import org.radarcns.topic.AvroTopic;
@@ -45,14 +46,15 @@ public class BiovotionHeartbeatToast extends AsyncTask<Void, Void, String> {
     @SafeVarargs
     protected final String doInBackground(Void... params) {
         try {
-                List<Record<ObservationKey, BiovotionVsm1HeartRate>> measurements = connection.getRecords("android_biovotion_vsm1_heartrate", 25);
+                RecordData<Object, Object> measurements = connection.getRecords("android_biovotion_vsm1_heartrate", 25);
                 if (!measurements.isEmpty()) {
                     StringBuilder sb = new StringBuilder(3200); // <32 chars * 100 measurements
-                    for (Record<ObservationKey, BiovotionVsm1HeartRate> measurement : measurements) {
-                        long diffTimeMillis = System.currentTimeMillis() - (long) (1000d * measurement.value.getTimeReceived());
+                    for (Object measurement : measurements) {
+                        BiovotionVsm1HeartRate HR_measurement = (BiovotionVsm1HeartRate) measurement;
+                        long diffTimeMillis = System.currentTimeMillis() - (long) (1000d * HR_measurement.getTimeReceived());
                         sb.append(singleDecimal.format(diffTimeMillis / 1000d));
                         sb.append(" sec. ago: ");
-                        sb.append(singleDecimal.format(measurement.value.getHeartRate()));
+                        sb.append(singleDecimal.format(HR_measurement.getHeartRate()));
                         sb.append(" bpm\n");
                     }
                     return sb.toString();

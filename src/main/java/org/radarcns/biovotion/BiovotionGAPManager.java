@@ -150,7 +150,7 @@ public class BiovotionGAPManager {
 
             return buildGapRequest(VsmConstants.GAP_TYPE_VITAL_RAW, start_ix, records_to_get);
         } else if (getRawGap().requestViableCheck() && !getRawGap().pageSizeCheck()) {
-            logger.warn("Biovotion VSM GAP pageSizeCheck:{} nextIndex():{} recordsToGet:{}", getRawGap().pageSizeCheck(), getRawGap().nextIndex(), getRawGap().recordsToGet());
+            logger.warn("Biovotion VSM GAP requestViableCheck:{} pageSizeCheck:{} nextIndex():{} recordsToGet:{}", getRawGap().requestViableCheck(), getRawGap().pageSizeCheck(), getRawGap().nextIndex(), getRawGap().recordsToGet());
         }
 
         return null;

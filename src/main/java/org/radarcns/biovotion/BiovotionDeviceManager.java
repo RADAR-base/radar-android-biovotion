@@ -52,6 +52,7 @@ import ch.hevs.ble.lib.events.responses.BleGattResponse;
 import ch.hevs.ble.lib.exceptions.BleScanException;
 import ch.hevs.ble.lib.scanner.Scanner;
 import org.radarcns.android.auth.AppSource;
+import org.radarcns.android.auth.SourceMetadata;
 import org.radarcns.android.data.DataCache;
 import org.radarcns.android.device.AbstractDeviceManager;
 import org.radarcns.android.device.DeviceStatusListener;
@@ -439,6 +440,7 @@ public class BiovotionDeviceManager
         paramReadRequest(VsmConstants.PID_GSR_ON);
 
         gapManager.setDeviceId(vsmDevice.descriptor().address());
+        //gapManager.getRawGap().clearAllPrefs();
 
         updateStatus(DeviceStatusListener.Status.CONNECTED);
         this.isConnecting = false;
@@ -515,11 +517,11 @@ public class BiovotionDeviceManager
         attributes.put("macAddress", vsmDescriptor.address());
         attributes.put("sdk", "vsm-5.2.0-release.aar");
         // register device now, start listening to the device after the registration is successful
-        getService().registerDevice(vsmDescriptor.address(), vsmDescriptor.name(), attributes);
+        getService().registerDevice(vsmDescriptor.name(), attributes);
     }
 
     @Override
-    public void didRegister(AppSource source) {
+    public void didRegister(SourceMetadata source) {
         super.didRegister(source);
 
         getState().getId().setSourceId(source.getSourceId());
@@ -532,9 +534,7 @@ public class BiovotionDeviceManager
         bleServiceConnectionIsBound = getService().bindService(gattServiceIntent,
                 bleServiceConnection, Context.BIND_AUTO_CREATE);
 
-        if (this != null) {
-            vsmDevice.addListener(this);
-        }
+        vsmDevice.addListener(this);
     }
 
     @Override

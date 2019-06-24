@@ -17,6 +17,7 @@
 package org.radarcns.biovotion;
 
 import org.apache.avro.specific.SpecificRecord;
+import org.radarcns.android.device.DeviceManager;
 import org.radarcns.android.device.DeviceService;
 import org.radarcns.kafka.ObservationKey;
 import org.radarcns.topic.AvroTopic;
@@ -36,6 +37,16 @@ import java.util.Map;
 public class BiovotionService extends DeviceService<BiovotionDeviceStatus> {
     private static final Logger logger = LoggerFactory.getLogger(BiovotionService.class);
     private Map<String, Long> deviceBlacklist = Collections.synchronizedMap(new HashMap<String, Long>());
+
+    @Override
+    public BiovotionDeviceManager getDeviceManager() {
+        DeviceManager deviceManager = super.getDeviceManager();
+        if (!(deviceManager instanceof BiovotionDeviceManager)) {
+            deviceManager = null;
+        }
+
+        return (BiovotionDeviceManager) deviceManager;
+    }
 
     @Override
     protected BiovotionDeviceManager createDeviceManager() {

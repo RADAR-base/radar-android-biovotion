@@ -1,10 +1,11 @@
 buildscript {
     repositories {
         jcenter()
+        google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.0'
+        classpath 'com.android.tools.build:gradle:3.3.0'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
         classpath 'com.github.dcendents:android-maven-gradle-plugin:2.0'
     }
 }
@@ -14,12 +15,12 @@ apply plugin: 'com.jfrog.bintray'
 apply plugin: 'com.github.dcendents.android-maven'
 
 android {
-    compileSdkVersion 27
-    buildToolsVersion "27.0.2"
+    compileSdkVersion 28
+    buildToolsVersion "28.0.3"
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 27
+        targetSdkVersion 28
         versionCode 5
         versionName '0.4-SNAPSHOT'
     }
@@ -28,13 +29,22 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
-            libraryVariants.all { variant ->
-                variant.outputs.all { output ->
-                    if (output.outputFile != null && output.outputFile.name.endsWith('.aar')) {
-                        outputFileName = new File(output.outputFile.parent,
-                                "${archivesBaseName}-${android.defaultConfig.versionName}.aar")
-                    }
-                }
+//            libraryVariants.all { variant ->
+//                variant.outputs.all { output ->
+//                    if (output.outputFile != null && output.outputFile.name.endsWith('.aar')) {
+//                        outputFileName = new File(output.outputFile.parent,
+//                                "${archivesBaseName}-${android.defaultConfig.versionName}.aar")
+//                    }
+//                }
+//            }
+        }
+    }
+    libraryVariants.all { variant ->
+        variant.outputs.all {
+            if (variant.name == 'release') {
+                outputFileName = "${archivesBaseName}-${android.defaultConfig.versionName}.aar"
+            } else {
+                outputFileName = "${archivesBaseName}-${android.defaultConfig.versionName}-${variant.name}.aar"
             }
         }
     }
@@ -85,11 +95,14 @@ dependencies {
     implementation 'ch.hevs.ble.lib:hevs-ble-library:0.8.1:release@aar'
 
     runtimeOnly 'com.squareup.okhttp:okhttp:2.5.0'
+
+    api 'org.radarcns:radar-commons-android:0.9.3'
+    implementation 'org.radarcns:radar-schemas-commons:0.4.3'
     //api 'org.radarcns:radar-commons-android:0.6'
     //implementation 'org.radarcns:radar-schemas-commons:0.2.3'
-    api project(':commons-android')
+    //api project(':commons-android')
 
-    api 'com.android.support:support-v4:27.0.2'
+    api 'com.android.support:support-v4:28.0.0'
 
     testImplementation 'junit:junit:4.12'
     testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.25'
@@ -221,7 +234,7 @@ bintray {
     }
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.1'
-    distributionType 'all'
-}
+//task wrapper(type: Wrapper) {
+//    gradleVersion = '4.1'
+//    distributionType 'all'
+//}
